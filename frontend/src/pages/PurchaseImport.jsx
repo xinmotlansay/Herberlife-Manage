@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UploadCloud, FileText, CheckCircle, Trash2, Plus, Sparkles, AlertCircle, Eye, Edit3, XCircle, Clock, ListFilter } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Trash2, Plus, Sparkles, AlertCircle, Eye, Edit3, XCircle, Clock, ListFilter, Calendar, Package } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function PurchaseImport({ onNavigateHistory }) {
@@ -11,13 +11,36 @@ export default function PurchaseImport({ onNavigateHistory }) {
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  // Existing Products List from Database for matching stock & current values
+  const [existingProducts, setExistingProducts] = useState([]);
+
+  // Draft Import Date state (defaults to current date-time)
+  const [draftImportDate, setDraftImportDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
+
   // Pending confirmation orders state
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loadingPending, setLoadingPending] = useState(false);
 
   useEffect(() => {
     fetchPendingOrders();
+    fetchExistingProducts();
   }, []);
+
+  const fetchExistingProducts = async () => {
+    try {
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      if (data.success) {
+        setExistingProducts(data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchPendingOrders = async () => {
     setLoadingPending(true);
@@ -40,8 +63,14 @@ export default function PurchaseImport({ onNavigateHistory }) {
       const res = await fetch(`/api/purchase-orders/${orderId}`);
       const data = await res.json();
       if (data.success) {
-        setDraftOrder(data.data);
-        setPreviewUrl(data.data.invoice_image_url || null);
+        const po = data.data;
+        setDraftOrder(po);
+        setPreviewUrl(po.invoice_image_url || null);
+        if (po.import_date) {
+          const dt = new Date(po.import_date);
+          dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+          setDraftImportDate(dt.toISOString().slice(0, 16));
+        }
       } else {
         alert('Lỗi: ' + data.error);
       }
@@ -64,20 +93,20 @@ export default function PurchaseImport({ onNavigateHistory }) {
           created_by: 'Chủ shop',
           items: [
             {
-              product_code_raw: 'SP001',
-              product_name_raw: 'Sản phẩm mới 01',
+              product_code_raw: '0065',
+              product_name_raw: 'Herbalifeline',
               unit: 'EA',
               quantity: 1,
-              unit_price_before_tax: 100000,
+              unit_price_before_tax: 567421,
               tax_rate: 8
             }
           ]
         })
       });
       const data = await res.json();
+
       if (data.success) {
         setDraftOrder(data.data);
-        setPreviewUrl(null);
         fetchPendingOrders();
       } else {
         alert('Lỗi tạo đơn thủ công: ' + data.error);
@@ -162,22 +191,46 @@ export default function PurchaseImport({ onNavigateHistory }) {
     }
   };
 
-  // Line item editing
+  // Line item editing with Real-time Product Lookup & Current Stock Display
   const handleItemChange = (index, field, value) => {
     if (!draftOrder) return;
     const newItems = [...draftOrder.items];
-    newItems[index] = {
+
+    let updatedItem = {
       ...newItems[index],
       [field]: value
     };
 
+    // If changing product_code_raw, auto-match existing product details from database!
+    if (field === 'product_code_raw') {
+      const cleanCode = value.trim().toUpperCase();
+      const matchedProd = existingProducts.find(p => p.product_code.toUpperCase() === cleanCode);
+
+      if (matchedProd) {
+        updatedItem.product_id = matchedProd.id;
+        updatedItem.product_name_raw = matchedProd.product_name;
+        updatedItem.unit = matchedProd.unit || 'EA';
+        updatedItem.is_new_product = false;
+        updatedItem.current_stock = matchedProd.quantity;
+
+        if (matchedProd.avg_import_price && (!updatedItem.unit_price_before_tax || updatedItem.unit_price_before_tax === 100000)) {
+          updatedItem.unit_price_before_tax = Math.round(matchedProd.avg_import_price / 1.08);
+        }
+      } else {
+        updatedItem.product_id = null;
+        updatedItem.is_new_product = true;
+        updatedItem.current_stock = 0;
+      }
+    }
+
     // Recalculate import price and total
-    const qty = parseInt(newItems[index].quantity, 10) || 0;
-    const unitPriceBeforeTax = parseFloat(newItems[index].unit_price_before_tax) || 0;
-    const taxRate = parseFloat(newItems[index].tax_rate) || 8;
+    const qty = parseInt(updatedItem.quantity, 10) || 0;
+    const unitPriceBeforeTax = parseFloat(updatedItem.unit_price_before_tax) || 0;
+    const taxRate = parseFloat(updatedItem.tax_rate) || 8;
     const importPrice = Math.round(unitPriceBeforeTax * (1 + taxRate / 100));
 
-    newItems[index].import_price = importPrice;
+    updatedItem.import_price = importPrice;
+    newItems[index] = updatedItem;
 
     // Recalculate total amount for draft
     const totalAmount = newItems.reduce((acc, curr) => {
@@ -213,14 +266,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
     if (!draftOrder) return;
     const newItem = {
       id: Date.now(),
-      product_code_raw: 'SP' + Math.floor(1000 + Math.random() * 9000),
-      product_name_raw: 'Sản phẩm mới',
+      product_code_raw: '0065',
+      product_name_raw: 'Herbalifeline',
       unit: 'EA',
       quantity: 1,
-      unit_price_before_tax: 100000,
+      unit_price_before_tax: 567421,
       tax_rate: 8,
-      import_price: 108000,
-      is_new_product: true
+      import_price: 612815,
+      is_new_product: false,
+      current_stock: 10
     };
     const newItems = [...draftOrder.items, newItem];
     const totalAmount = newItems.reduce((acc, curr) => (acc + (curr.quantity * curr.import_price)), 0);
@@ -236,13 +290,16 @@ export default function PurchaseImport({ onNavigateHistory }) {
   const handleConfirmSubmit = async (selectedImportDate) => {
     if (!draftOrder) return;
     setSubmitting(true);
+
+    const finalDate = selectedImportDate || draftImportDate;
+
     try {
       const res = await fetch(`/api/purchase-orders/${draftOrder.id}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: draftOrder.items,
-          import_date: selectedImportDate
+          import_date: finalDate
         })
       });
       const data = await res.json();
@@ -251,7 +308,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         setIsModalOpen(false);
         setNotification({
           type: 'success',
-          message: `Xác nhận đơn nhập #${draftOrder.id} thành công! Đã cộng ${draftOrder.items.length} dòng hàng vào kho với ngày nhập: ${new Date(selectedImportDate || Date.now()).toLocaleDateString('vi-VN')}.`
+          message: `Xác nhận đơn nhập #${draftOrder.id} thành công! Đã cộng kho ngày: ${new Date(finalDate).toLocaleDateString('vi-VN')}.`
         });
         setDraftOrder(null);
         setPreviewUrl(null);
@@ -301,20 +358,22 @@ export default function PurchaseImport({ onNavigateHistory }) {
         </div>
       )}
 
-      {/* Pending Confirmation Orders Bar */}
+      {/* Pending Draft Orders Notification Bar */}
       {pendingOrders.length > 0 && !draftOrder && (
-        <div className="card" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a' }}>
-          <div className="card-header" style={{ borderColor: '#fef3c7', marginBottom: '0.75rem' }}>
-            <div className="card-title" style={{ color: '#92400e' }}>
-              <Clock color="#b45309" size={22} />
-              Danh Sách Đơn Nhập Chờ Xác Nhận ({pendingOrders.length} đơn)
+        <div className="card" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <Clock color="#d97706" size={24} />
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#92400e', margin: 0 }}>
+                Bạn có {pendingOrders.length} đơn nhập kho nháp đang chờ xử lý!
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: '#b45309', margin: '2px 0 0 0' }}>
+                Bấm vào đơn nháp bên dưới để tiếp tục kiểm tra, sửa lùi ngày nhập kho và cộng kho.
+              </p>
             </div>
-            <span style={{ fontSize: '0.85rem', color: '#b45309' }}>
-              Bấm vào đơn bên dưới để xem, chỉnh sửa hoặc xác nhận cộng kho
-            </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
             {pendingOrders.map(po => (
               <div
                 key={po.id}
@@ -442,7 +501,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                 Bảng Kiểm Tra & Chỉnh Sửa Đơn Nhập Hàng (Bản Nháp #{draftOrder.id})
               </div>
               <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                Trạng thái: <span className="badge badge-pending">Chờ Xác Nhận</span> — Bạn có thể chỉnh sửa các ô bên dưới trước khi bấm xác nhận nhập kho.
+                Trạng thái: <span className="badge badge-pending">Chờ Xác Nhận</span> — Bạn có thể nhập mã SP để tự động hiện tên/tồn kho và sửa lùi ngày nhập kho ngay dưới đây.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -459,10 +518,44 @@ export default function PurchaseImport({ onNavigateHistory }) {
             </div>
           </div>
 
+          {/* Direct Backdated Date Time Selector Toolbar */}
+          <div style={{
+            backgroundColor: '#eff6ff',
+            border: '1.5px solid #3b82f6',
+            borderRadius: '0.75rem',
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar color="#2563eb" size={20} />
+              <div>
+                <strong style={{ fontSize: '0.9rem', color: '#1e40af', display: 'block' }}>
+                  📅 Ngày Giờ Nhập Kho (Chỉnh sửa trực tiếp lùi ngày tháng trước):
+                </strong>
+                <span style={{ fontSize: '0.78rem', color: '#3b82f6' }}>
+                  Thay đổi ngày giờ tại đây để ghi nhận nhập bổ sung cho các tháng cũ
+                </span>
+              </div>
+            </div>
+
+            <input
+              type="datetime-local"
+              className="table-input"
+              style={{ width: '220px', padding: '0.45rem 0.65rem', fontWeight: 800, fontSize: '0.9rem', color: '#1e3a8a', backgroundColor: '#ffffff' }}
+              value={draftImportDate}
+              onChange={(e) => setDraftImportDate(e.target.value)}
+            />
+          </div>
+
           {previewUrl && (
             <div style={{
-              marginBottom: '1.5rem',
-              padding: '1rem',
+              marginBottom: '1.25rem',
+              padding: '0.85rem 1.25rem',
               backgroundColor: '#f8fafc',
               borderRadius: '0.75rem',
               border: '1px solid #e2e8f0',
@@ -490,15 +583,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>#</th>
-                  <th style={{ width: '110px' }}>Mã SP</th>
+                  <th style={{ width: '120px' }}>Mã SP</th>
                   <th>Tên Sản Phẩm</th>
                   <th style={{ width: '70px' }}>ĐVT</th>
                   <th style={{ width: '90px' }}>Số Lượng</th>
                   <th style={{ width: '140px' }}>Đơn Giá Trước Thuế (đ)</th>
-                  <th style={{ width: '80px' }}>Thuế (%)</th>
+                  <th style={{ width: '75px' }}>Thuế (%)</th>
                   <th style={{ width: '130px' }}>Giá Nhập (gồm thuế)</th>
                   <th style={{ width: '140px' }}>Thành Tiền (đ)</th>
-                  <th style={{ width: '120px' }}>Loại SP</th>
+                  <th style={{ width: '160px' }}>Trạng Thái & Tồn Hiện Tại</th>
                   <th style={{ width: '60px', textAlign: 'center' }}>Thao tác</th>
                 </tr>
               </thead>
@@ -508,17 +601,27 @@ export default function PurchaseImport({ onNavigateHistory }) {
                   const importPrice = item.import_price || 0;
                   const lineTotal = qty * importPrice;
 
+                  // Find matched product in db for stock info display
+                  const cleanCode = (item.product_code_raw || '').trim().toUpperCase();
+                  const matchedProd = existingProducts.find(p => p.product_code.toUpperCase() === cleanCode);
+
                   return (
                     <tr key={item.id || idx}>
                       <td>{idx + 1}</td>
+
+                      {/* Product Code Input with suggestions matching */}
                       <td>
                         <input
                           type="text"
                           className="table-input"
+                          style={{ fontWeight: 700, color: '#064e3b' }}
                           value={item.product_code_raw || ''}
                           onChange={(e) => handleItemChange(idx, 'product_code_raw', e.target.value)}
+                          placeholder="Mã SP (VD: 0065)"
                         />
                       </td>
+
+                      {/* Product Name Input */}
                       <td>
                         <input
                           type="text"
@@ -527,6 +630,8 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           onChange={(e) => handleItemChange(idx, 'product_name_raw', e.target.value)}
                         />
                       </td>
+
+                      {/* Unit Input */}
                       <td>
                         <input
                           type="text"
@@ -535,6 +640,8 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
                         />
                       </td>
+
+                      {/* Quantity Input */}
                       <td>
                         <input
                           type="number"
@@ -544,6 +651,8 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                         />
                       </td>
+
+                      {/* Unit Price Before Tax */}
                       <td>
                         <input
                           type="number"
@@ -552,6 +661,8 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           onChange={(e) => handleItemChange(idx, 'unit_price_before_tax', e.target.value)}
                         />
                       </td>
+
+                      {/* Tax Rate % */}
                       <td>
                         <input
                           type="number"
@@ -560,26 +671,37 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           onChange={(e) => handleItemChange(idx, 'tax_rate', e.target.value)}
                         />
                       </td>
+
                       <td style={{ fontWeight: 600, color: '#047857' }}>
                         {importPrice.toLocaleString('vi-VN')}
                       </td>
                       <td style={{ fontWeight: 700, color: '#064e3b' }}>
                         {lineTotal.toLocaleString('vi-VN')}
                       </td>
+
+                      {/* Existing Stock Info Display Badge */}
                       <td>
-                        {item.is_new_product ? (
-                          <span className="badge badge-new">SP Mới (NULL ảnh)</span>
+                        {matchedProd ? (
+                          <div style={{ fontSize: '0.78rem' }}>
+                            <span className="badge badge-exist" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <Package size={12} /> Đã có trong kho
+                            </span>
+                            <span style={{ display: 'block', color: '#059669', fontWeight: 800, marginTop: '2px' }}>
+                              Tồn khả dụng: {matchedProd.quantity} {matchedProd.unit}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="badge badge-exist">Đã Có Trong Kho</span>
+                          <span className="badge badge-new">SP Mới (Tồn: 0)</span>
                         )}
                       </td>
+
                       <td style={{ textAlign: 'center' }}>
                         <button
                           style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
                           onClick={() => handleRemoveItem(idx)}
                           title="Xoá dòng"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
@@ -589,25 +711,22 @@ export default function PurchaseImport({ onNavigateHistory }) {
             </table>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button className="btn btn-secondary" onClick={handleAddItem}>
-              <Plus size={18} />
-              Thêm Dòng Sản Phẩm
+              <Plus size={16} /> Thêm Dòng Sản Phẩm Mới
             </button>
 
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.95rem', color: '#64748b', marginRight: '1rem' }}>
-                Tổng ({draftOrder.items.length} mặt hàng):
-              </span>
-              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669' }}>
-                {calculateSummary().totalAmount.toLocaleString('vi-VN')} đ
+              <span style={{ fontSize: '0.9rem', color: '#64748b' }}>Tổng Tiền Nhập Hàng Sau Thuế: </span>
+              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#059669', marginLeft: '0.5rem' }}>
+                {draftOrder.total_amount ? draftOrder.total_amount.toLocaleString('vi-VN') + ' đ' : '0 đ'}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal with Backdated Import Date Selector */}
       <ConfirmModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
