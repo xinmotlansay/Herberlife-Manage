@@ -517,6 +517,158 @@ export default function Statistics() {
               </div>
             )}
           </div>
+          {/* SECTION 6: OFFICIAL ACCOUNTING PRINT-ONLY PDF TEMPLATE (NO COLORS, SIMPLE & CLEAN) */}
+          <div className="print-only" style={{ padding: '10px' }}>
+            {/* Header Shop & Legal Standard */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid black', paddingBottom: '8px', marginBottom: '15px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>CỬA HÀNG HERBALIFE</h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px' }}>Hệ thống Quản lý Kho & Bán hàng Local</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <h3 style={{ margin: 0, fontSize: '12px', fontWeight: 'bold' }}>Mẫu số S12-HKD</h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '10px', fontStyle: 'italic' }}>(Ban hành theo TT 88/2021/TT-BTC)</p>
+              </div>
+            </div>
+
+            {/* Document Title */}
+            <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                BÁO CÁO TÌNH HÌNH KINH DOANH & NHẬP - XUẤT - TỒN KHO
+              </h2>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', fontStyle: 'italic' }}>
+                Tháng {selectedMonth} năm {selectedYear}
+              </p>
+            </div>
+
+            {/* Part I: Financial Summary Table */}
+            <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 6px 0', textTransform: 'uppercase' }}>
+              I. BẢNG TỔNG HỢP CHỈ TIÊU KINH DOANH TRONG THÁNG
+            </h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '11px', color: 'black' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ border: '1px solid black', padding: '5px', textAlign: 'center', width: '40px' }}>STT</th>
+                  <th style={{ border: '1px solid black', padding: '5px', textAlign: 'left' }}>Chỉ Tiêu Kế Toán</th>
+                  <th style={{ border: '1px solid black', padding: '5px', textAlign: 'center', width: '60px' }}>ĐVT</th>
+                  <th style={{ border: '1px solid black', padding: '5px', textAlign: 'right', width: '160px' }}>Giá Trị (VNĐ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>1</td>
+                  <td style={{ border: '1px solid black', padding: '5px' }}>Doanh thu bán hàng trong tháng</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>{mSummary.monthly_revenue ? mSummary.monthly_revenue.toLocaleString('vi-VN') + ' đ' : '0 đ'}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>2</td>
+                  <td style={{ border: '1px solid black', padding: '5px' }}>Giá vốn hàng bán (COGS - Tính theo FIFO)</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{mSummary.monthly_cost_of_goods_sold ? mSummary.monthly_cost_of_goods_sold.toLocaleString('vi-VN') + ' đ' : '0 đ'}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>3</td>
+                  <td style={{ border: '1px solid black', padding: '5px', fontWeight: 'bold' }}>Lợi nhuận gộp trong tháng (1 - 2)</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>{mSummary.monthly_profit ? mSummary.monthly_profit.toLocaleString('vi-VN') + ' đ' : '0 đ'}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>4</td>
+                  <td style={{ border: '1px solid black', padding: '5px' }}>Giá trị hàng tồn kho ĐẦU KỲ (Chuyển từ tháng trước)</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{totalNxtOpeningValue.toLocaleString('vi-VN')} đ</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>5</td>
+                  <td style={{ border: '1px solid black', padding: '5px' }}>Giá trị hàng nhập kho trong tháng</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{mSummary.monthly_imported_cost ? mSummary.monthly_imported_cost.toLocaleString('vi-VN') + ' đ' : '0 đ'}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>6</td>
+                  <td style={{ border: '1px solid black', padding: '5px', fontWeight: 'bold' }}>Giá trị hàng tồn kho CUỐI KỲ (Chuyển sang tháng sau)</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>VNĐ</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>{totalNxtClosingValue.toLocaleString('vi-VN')} đ</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Part II: Roll-Forward NXT Detail Table */}
+            <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '14px 0 6px 0', textTransform: 'uppercase' }}>
+              II. SỔ CHI TIẾT KẾT CHUYỂN NHẬP - XUẤT - TỒN KHO THÁNG
+            </h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', color: 'black' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th rowSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>STT</th>
+                  <th rowSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>Mã SP</th>
+                  <th rowSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'left' }}>Tên Sản Phẩm</th>
+                  <th rowSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>ĐVT</th>
+                  <th colSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>TỒN ĐẦU KỲ</th>
+                  <th colSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>NHẬP TRONG KỲ</th>
+                  <th colSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>XUẤT TRONG KỲ</th>
+                  <th colSpan="2" style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>TỒN CUỐI KỲ</th>
+                </tr>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>SL</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>Giá Trị (đ)</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>SL</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>Giá Trị (đ)</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>SL</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>Giá Trị (đ)</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>SL</th>
+                  <th style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>Giá Trị (đ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nxtList.map((row, idx) => (
+                  <tr key={row.product_id}>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>{row.product_code}</td>
+                    <td style={{ border: '1px solid black', padding: '4px' }}>{row.product_name}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{row.unit}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{row.opening_stock}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{row.opening_value.toLocaleString('vi-VN')}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{row.imported_qty}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{row.imported_value.toLocaleString('vi-VN')}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center' }}>{row.sold_qty}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right' }}>{row.sold_value.toLocaleString('vi-VN')}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>{row.closing_stock}</td>
+                    <td style={{ border: '1px solid black', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>{row.closing_value.toLocaleString('vi-VN')}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: '2px solid black', borderBottom: '2px solid black', fontWeight: 'bold' }}>
+                  <td colSpan="4" style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>TỔNG CỘNG:</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>-</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{totalNxtOpeningValue.toLocaleString('vi-VN')}</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>-</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{totalNxtImportedValue.toLocaleString('vi-VN')}</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>-</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{totalNxtSoldValue.toLocaleString('vi-VN')}</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'center' }}>-</td>
+                  <td style={{ border: '1px solid black', padding: '5px', textAlign: 'right' }}>{totalNxtClosingValue.toLocaleString('vi-VN')}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {/* Official Accounting Signatures Block */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '25px', textAlign: 'center', fontSize: '11px', pageBreakInside: 'avoid' }}>
+              <div style={{ width: '220px' }}>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>NGƯỜI LẬP BẢNG</p>
+                <p style={{ margin: '2px 0 40px 0', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</p>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>Chủ shop</p>
+              </div>
+              <div style={{ width: '240px' }}>
+                <p style={{ margin: 0, fontStyle: 'italic' }}>Ngày ..... tháng ..... năm .....</p>
+                <p style={{ margin: '2px 0 0 0', fontWeight: 'bold' }}>CHỦ CƠ SỞ / KẾ TOÁN TRƯỞNG</p>
+                <p style={{ margin: '2px 0 40px 0', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</p>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>Xác nhận</p>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
