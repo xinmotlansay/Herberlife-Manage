@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag, User, Plus, Trash2, CheckCircle, AlertCircle, Calendar,
-  DollarSign, Search, UserPlus, ArrowRight, Minus, Sparkles, Check, CreditCard, X, ShoppingCart
+  DollarSign, Search, UserPlus, ArrowRight, Minus, Sparkles, Check, CreditCard, X, ShoppingCart, AlertTriangle, FileText
 } from 'lucide-react';
 
 export default function SalesCreate({ onNavigateHistory }) {
@@ -28,8 +28,10 @@ export default function SalesCreate({ onNavigateHistory }) {
   const [cartItems, setCartItems] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [notification, setNotification] = useState(null);
+
+  // PROMINENT POPUP MODAL STATES
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '' });
+  const [successModal, setSuccessModal] = useState({ isOpen: false, orderData: null });
 
   useEffect(() => {
     fetchCustomersAndProducts();
@@ -53,6 +55,14 @@ export default function SalesCreate({ onNavigateHistory }) {
     }
   };
 
+  const showAlert = (title, message) => {
+    setAlertModal({ isOpen: true, title, message });
+  };
+
+  const closeAlert = () => {
+    setAlertModal({ isOpen: false, title: '', message: '' });
+  };
+
   // Add product to cart
   const handleAddProductToCart = (prod) => {
     const existingIndex = cartItems.findIndex(item => item.product_id === prod.id);
@@ -64,7 +74,7 @@ export default function SalesCreate({ onNavigateHistory }) {
         updated[existingIndex].quantity += 1;
         setCartItems(updated);
       } else {
-        alert(`Sản phẩm "${prod.product_name}" chỉ còn ${prod.quantity} ${prod.unit} trong kho`);
+        showAlert('Cảnh Báo Giới Hạn Tồn Kho', `Sản phẩm "${prod.product_name}" chỉ còn ${prod.quantity} ${prod.unit} khả dụng trong kho.`);
       }
     } else {
       const suggestedPrice = prod.avg_import_price ? Math.round(prod.avg_import_price * 1.2) : 100000;
@@ -91,7 +101,7 @@ export default function SalesCreate({ onNavigateHistory }) {
       return;
     }
     if (newQty > updated[index].max_stock) {
-      alert(`Số lượng tồn kho tối đa là ${updated[index].max_stock}`);
+      showAlert('Cảnh Báo Giới Hạn Tồn Kho', `Số lượng tồn kho tối đa của sản phẩm này là ${updated[index].max_stock} ${updated[index].unit}.`);
       return;
     }
     updated[index].quantity = newQty;
@@ -148,27 +158,43 @@ export default function SalesCreate({ onNavigateHistory }) {
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
-    setError('');
-    setNotification(null);
 
-    if (cartItems.length === 0) {
-      setError('Giỏ hàng bán đang trống. Vui lòng chọn sản phẩm.');
-      return;
-    }
-
+    // VALIDATION CHECKS WITH CLEAR POPUP ALERTS
     if (customerMode === 'existing' && !selectedCustomerId) {
-      setError('Vui lòng chọn khách hàng mua hàng');
+      showAlert('Thiếu Thông Tin Khách Hàng', 'Vui lòng chọn khách hàng mua hàng từ danh sách.');
       return;
     }
 
     if (customerMode === 'new' && !customerNameNew.trim()) {
-      setError('Vui lòng nhập Họ tên cho khách hàng mới');
+      showAlert('Thiếu Thông Tin Khách Hàng Mới', 'Vui lòng nhập Họ và tên cho khách hàng mới.');
       return;
+    }
+
+    if (cartItems.length === 0) {
+      showAlert('Giỏ Hàng Đang Trống', 'Vui lòng bấm chọn ít nhất 1 sản phẩm ở danh mục phía trên để đưa vào đơn bán hàng.');
+      return;
+    }
+
+    // Check individual items
+    for (const item of cartItems) {
+      if (item.quantity <= 0) {
+        showAlert('Số Lượng Không Hợp Lệ', `Sản phẩm "${item.product_name}" phải có số lượng lớn hơn 0.`);
+        return;
+      }
+      if (item.quantity > item.max_stock) {
+        showAlert('Cảnh Báo Vượt Tồn Kho', `Sản phẩm "${item.product_name}" chọn bán ${item.quantity} ${item.unit}, vượt quá tồn kho khả dụng (${item.max_stock} ${item.unit}).`);
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
+      const selectedCustomerObj = customers.find(c => c.id === parseInt(selectedCustomerId, 10));
+      const customerDisplayName = customerMode === 'new'
+        ? customerNameNew.trim()
+        : (selectedCustomerObj ? selectedCustomerObj.full_name : 'Khách hàng');
+
       const payload = {
         customer_id: customerMode === 'existing' ? parseInt(selectedCustomerId, 10) : null,
         customer_name_new: customerMode === 'new' ? customerNameNew.trim() : null,
@@ -200,12 +226,21 @@ export default function SalesCreate({ onNavigateHistory }) {
           });
         }
 
-        setNotification({
-          type: 'success',
-          message: `Tạo đơn bán hàng #${data.data.id} thành công! Đã trừ kho tự động theo cơ chế FIFO.`
+        // SHOW SUCCESS POPUP MODAL WITH FULL ORDER DETAILS
+        setSuccessModal({
+          isOpen: true,
+          orderData: {
+            id: data.data.id,
+            customerName: customerDisplayName,
+            totalAmount: grandTotal,
+            paidAmount: calculatedPaid,
+            debtAmount: calculatedDebt,
+            itemCount: cartItems.length,
+            paymentStatus
+          }
         });
 
-        // Reset & Collapse Form
+        // Reset Form
         setCartItems([]);
         setSelectedCustomerId('');
         setCustomerNameNew('');
@@ -215,11 +250,11 @@ export default function SalesCreate({ onNavigateHistory }) {
         setIsCreatingOrder(false);
         fetchCustomersAndProducts();
       } else {
-        setError(data.error || 'Tạo đơn bán thất bại');
+        showAlert('Tạo Đơn Bán Thất Bại', data.error || 'Đã có lỗi xảy ra khi tạo đơn hàng.');
       }
     } catch (err) {
       console.error(err);
-      setError('Không thể kết nối máy chủ');
+      showAlert('Lỗi Kết Nối Máy Chủ', 'Không thể kết nối tới máy chủ backend. Vui lòng kiểm tra lại.');
     } finally {
       setLoading(false);
     }
@@ -234,35 +269,7 @@ export default function SalesCreate({ onNavigateHistory }) {
 
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
-      {/* Success Notification Bar */}
-      {notification && (
-        <div style={{
-          backgroundColor: '#ecfdf5',
-          border: '1px solid #10b981',
-          borderRadius: '0.75rem',
-          padding: '1.25rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: '#064e3b',
-          boxShadow: 'var(--shadow-md)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <CheckCircle size={26} color="#059669" />
-            <div>
-              <strong style={{ fontSize: '1rem', display: 'block' }}>{notification.message}</strong>
-              <span style={{ fontSize: '0.85rem', color: '#047857' }}>Số lượng sản phẩm đã được trừ kho và cập nhật công nợ.</span>
-            </div>
-          </div>
-          {onNavigateHistory && (
-            <button className="btn btn-primary" onClick={onNavigateHistory}>
-              Xem Lịch Sử Bán Hàng <ArrowRight size={16} />
-            </button>
-          )}
-        </div>
-      )}
-
+      
       {/* Primary Action Header Banner */}
       {!isCreatingOrder ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', background: 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%)', border: '1.5px solid #a7f3d0' }}>
@@ -590,24 +597,6 @@ export default function SalesCreate({ onNavigateHistory }) {
                 </div>
               </div>
 
-              {error && (
-                <div style={{
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fca5a5',
-                  color: '#991b1b',
-                  padding: '0.65rem',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.8rem',
-                  marginBottom: '0.85rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}>
-                  <AlertCircle size={16} />
-                  <span>{error}</span>
-                </div>
-              )}
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 
                 {/* Receipt Breakdown Table */}
@@ -769,7 +758,7 @@ export default function SalesCreate({ onNavigateHistory }) {
                     borderRadius: '0.65rem',
                     marginTop: '0.1rem'
                   }}
-                  disabled={loading || cartItems.length === 0}
+                  disabled={loading}
                   onClick={handleSubmitOrder}
                 >
                   {loading ? 'Đang Trừ Kho FIFO...' : '🚀 XÁC NHẬN TẠO ĐƠN & TRỪ KHO'}
@@ -778,6 +767,130 @@ export default function SalesCreate({ onNavigateHistory }) {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* 1. WARNING / VALIDATION ALERT MODAL POPUP */}
+      {alertModal.isOpen && (
+        <div className="modal-overlay" onClick={closeAlert}>
+          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ backgroundColor: '#ef4444' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <AlertTriangle size={24} color="white" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'white', margin: 0 }}>
+                  {alertModal.title}
+                </h3>
+              </div>
+              <button onClick={closeAlert} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '1.5rem', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.95rem', color: '#334155', lineHeight: 1.5, margin: 0 }}>
+                {alertModal.message}
+              </p>
+            </div>
+
+            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+              <button className="btn btn-primary" style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', padding: '0.6rem 1.75rem' }} onClick={closeAlert}>
+                Đã Hiểu / Kiểm Tra Lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. ORDER SUCCESS POPUP MODAL WITH ORDER DETAILS */}
+      {successModal.isOpen && successModal.orderData && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header" style={{ backgroundColor: '#059669' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <CheckCircle size={26} color="white" />
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'white', margin: 0 }}>
+                    Tạo Đơn Bán Hàng Thành Công!
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#a7f3d0' }}>
+                    Mã đơn bán hàng: #{successModal.orderData.id}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-body" style={{ padding: '1.25rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem auto', color: '#059669' }}>
+                  <Sparkles size={34} />
+                </div>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#064e3b' }}>
+                  Đã Trừ Kho FIFO Tự Động
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  Số lượng sản phẩm trong kho đã được khấu trừ từ các lô kho cũ nhất tới mới nhất.
+                </p>
+              </div>
+
+              {/* Order Receipt Details Summary */}
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Tên Khách Hàng:</span>
+                  <strong style={{ color: '#0f172a' }}>{successModal.orderData.customerName}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Tổng Loại Mặt Hàng:</span>
+                  <strong style={{ color: '#0f172a' }}>{successModal.orderData.itemCount} loại sản phẩm</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Tổng Giá Trị Đơn Hàng:</span>
+                  <strong style={{ color: '#064e3b', fontSize: '1.05rem', fontWeight: 900 }}>
+                    {successModal.orderData.totalAmount.toLocaleString('vi-VN')} đ
+                  </strong>
+                </div>
+
+                <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Số Tiền Thu Ngay:</span>
+                  <strong style={{ color: '#059669' }}>
+                    {successModal.orderData.paidAmount.toLocaleString('vi-VN')} đ
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Công Nợ Ghi Sổ:</span>
+                  <strong style={{ color: successModal.orderData.debtAmount > 0 ? '#b45309' : '#64748b' }}>
+                    {successModal.orderData.debtAmount.toLocaleString('vi-VN')} đ
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                onClick={() => setSuccessModal({ isOpen: false, orderData: null })}
+              >
+                ➕ Tiếp Tục Tạo Đơn Khác
+              </button>
+              {onNavigateHistory && (
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    setSuccessModal({ isOpen: false, orderData: null });
+                    onNavigateHistory();
+                  }}
+                >
+                  <FileText size={16} /> Xem Lịch Sử Bán Hàng
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
