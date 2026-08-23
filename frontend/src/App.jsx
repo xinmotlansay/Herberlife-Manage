@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { UploadCloud, History, Package, Users, ShieldCheck, Leaf } from 'lucide-react';
+import { UploadCloud, History, Package, Users, ShoppingCart, ShoppingBag, ShieldCheck, Leaf } from 'lucide-react';
 import PurchaseImport from './pages/PurchaseImport';
 import PurchaseHistory from './pages/PurchaseHistory';
 import InventoryView from './pages/InventoryView';
 import Customers from './pages/Customers';
+import SalesCreate from './pages/SalesCreate';
+import SalesHistory from './pages/SalesHistory';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('import'); // 'import', 'history', 'inventory', 'customers'
+  const [activeTab, setActiveTab] = useState('import'); // 'import', 'history', 'inventory', 'customers', 'sales_create', 'sales_history'
 
   return (
     <div className="app-container">
@@ -65,6 +67,22 @@ export default function App() {
             <Users className="icon" />
             <span>4. Quản Lý Khách Hàng</span>
           </div>
+
+          <div
+            className={`nav-item ${activeTab === 'sales_create' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sales_create')}
+          >
+            <ShoppingCart className="icon" />
+            <span>5. Tạo Đơn Bán Hàng</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'sales_history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sales_history')}
+          >
+            <ShoppingBag className="icon" />
+            <span>6. Lịch Sử Bán Hàng</span>
+          </div>
         </nav>
 
         <div style={{ marginTop: 'auto', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
@@ -84,6 +102,8 @@ export default function App() {
               {activeTab === 'history' && 'Lịch Sử Các Đơn Nhập Hàng'}
               {activeTab === 'inventory' && 'Module 2: Quản Lý Tồn Kho Sản Phẩm'}
               {activeTab === 'customers' && 'Module 3: Quản Lý Khách Hàng & Công Nợ'}
+              {activeTab === 'sales_create' && 'Module 4: Tạo Đơn Bán Hàng & Trừ Kho FIFO'}
+              {activeTab === 'sales_history' && 'Lịch Sử Đơn Bán Hàng & Phân Bổ FIFO'}
             </h1>
             <p>Hệ thống Quản lý Cửa hàng Herbalife (Chạy Local - Miễn phí)</p>
           </div>
@@ -104,6 +124,10 @@ export default function App() {
           {activeTab === 'history' && <PurchaseHistory />}
           {activeTab === 'inventory' && <InventoryView />}
           {activeTab === 'customers' && <Customers />}
+          {activeTab === 'sales_create' && (
+            <SalesCreate onNavigateHistory={() => setActiveTab('sales_history')} />
+          )}
+          {activeTab === 'sales_history' && <SalesHistory />}
         </main>
       </div>
     </div>
