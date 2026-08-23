@@ -143,16 +143,7 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
 router.post('/manual', (req, res) => {
   try {
     const { items, created_by } = req.body;
-    const initialItems = items && items.length > 0 ? items : [
-      {
-        product_code_raw: 'SP001',
-        product_name_raw: 'Sản phẩm Herbalife Mới',
-        unit: 'EA',
-        quantity: 1,
-        unit_price_before_tax: 100000,
-        tax_rate: 8
-      }
-    ];
+    const initialItems = items && Array.isArray(items) ? items : [];
 
     const insertPo = db.prepare(`
       INSERT INTO purchase_orders (invoice_image_url, status, created_by)
@@ -173,6 +164,8 @@ router.post('/manual', (req, res) => {
     const insertedItems = [];
 
     for (const item of initialItems) {
+      if (!item.product_code_raw && !item.product_name_raw) continue;
+
       const code = (item.product_code_raw || 'SP001').trim().toUpperCase();
       const existingProd = findProductByCode.get(code);
       const isNew = existingProd ? 0 : 1;

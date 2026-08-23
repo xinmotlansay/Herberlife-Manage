@@ -11,7 +11,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // Existing Products List from Database for matching stock & current values
+  // Existing Products List from Database for matching stock & accurate price lookup
   const [existingProducts, setExistingProducts] = useState([]);
 
   // Draft Import Date state (defaults to current date-time)
@@ -64,8 +64,23 @@ export default function PurchaseImport({ onNavigateHistory }) {
       const data = await res.json();
       if (data.success) {
         const po = data.data;
-        setDraftOrder(po);
+
+        // Populate stock and correct price info for existing draft items
+        const populatedItems = (po.items || []).map(item => {
+          const cleanCode = (item.product_code_raw || '').trim().toUpperCase();
+          const matchedProd = existingProducts.find(p => p.product_code.toUpperCase() === cleanCode);
+          return {
+            ...item,
+            current_stock: matchedProd ? matchedProd.quantity : 0
+          };
+        });
+
+        setDraftOrder({
+          ...po,
+          items: populatedItems
+        });
         setPreviewUrl(po.invoice_image_url || null);
+
         if (po.import_date) {
           const dt = new Date(po.import_date);
           dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
@@ -82,6 +97,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
     }
   };
 
+  // Create clean manual import draft starting with an empty line (no pre-filled dummy product)
   const handleCreateManualOrder = async () => {
     setLoadingOcr(true);
     setNotification(null);
@@ -91,22 +107,31 @@ export default function PurchaseImport({ onNavigateHistory }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           created_by: 'Chủ shop',
-          items: [
-            {
-              product_code_raw: '0065',
-              product_name_raw: 'Herbalifeline',
-              unit: 'EA',
-              quantity: 1,
-              unit_price_before_tax: 567421,
-              tax_rate: 8
-            }
-          ]
+          items: [] // Start empty
         })
       });
       const data = await res.json();
 
       if (data.success) {
-        setDraftOrder(data.data);
+        // Start with 1 clean empty item line waiting for user input
+        const emptyItem = {
+          id: Date.now(),
+          product_code_raw: '',
+          product_name_raw: '',
+          unit: 'EA',
+          quantity: 1,
+          unit_price_before_tax: 0,
+          tax_rate: 8,
+          import_price: 0,
+          is_new_product: true,
+          current_stock: 0
+        };
+
+        setDraftOrder({
+          ...data.data,
+          items: [emptyItem],
+          total_amount: 0
+        });
         fetchPendingOrders();
       } else {
         alert('Lỗi tạo đơn thủ công: ' + data.error);
@@ -143,7 +168,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
     }
   };
 
-  // Handle file select or drag-drop
+  // Handle file select or drag-drop for OCR
   const handleFileChange = (e) => {
     const selectedFile = e.target.files ? e.target.files[0] : null;
     if (selectedFile) {
@@ -191,7 +216,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
     }
   };
 
-  // Line item editing with Real-time Product Lookup & Current Stock Display
+  // Accurate Line item editing & Real-time Product Matching
   const handleItemChange = (index, field, value) => {
     if (!draftOrder) return;
     const newItems = [...draftOrder.items];
@@ -201,21 +226,24 @@ export default function PurchaseImport({ onNavigateHistory }) {
       [field]: value
     };
 
-    // If changing product_code_raw, auto-match existing product details from database!
+    // If user changes product_code_raw, auto-match product & calculate price accurately
     if (field === 'product_code_raw') {
       const cleanCode = value.trim().toUpperCase();
       const matchedProd = existingProducts.find(p => p.product_code.toUpperCase() === cleanCode);
 
       if (matchedProd) {
+        const taxRate = parseFloat(updatedItem.tax_rate) || 8;
+        // Calculate pre-tax price accurately from matched average import price
+        const calculatedPreTax = matchedProd.avg_import_price > 0
+          ? Math.round(matchedProd.avg_import_price / (1 + (taxRate / 100)))
+          : 0;
+
         updatedItem.product_id = matchedProd.id;
         updatedItem.product_name_raw = matchedProd.product_name;
         updatedItem.unit = matchedProd.unit || 'EA';
+        updatedItem.unit_price_before_tax = calculatedPreTax;
         updatedItem.is_new_product = false;
         updatedItem.current_stock = matchedProd.quantity;
-
-        if (matchedProd.avg_import_price && (!updatedItem.unit_price_before_tax || updatedItem.unit_price_before_tax === 100000)) {
-          updatedItem.unit_price_before_tax = Math.round(matchedProd.avg_import_price / 1.08);
-        }
       } else {
         updatedItem.product_id = null;
         updatedItem.is_new_product = true;
@@ -223,7 +251,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
       }
     }
 
-    // Recalculate import price and total
+    // Recalculate import price (after tax) and total line amount
     const qty = parseInt(updatedItem.quantity, 10) || 0;
     const unitPriceBeforeTax = parseFloat(updatedItem.unit_price_before_tax) || 0;
     const taxRate = parseFloat(updatedItem.tax_rate) || 8;
@@ -266,15 +294,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
     if (!draftOrder) return;
     const newItem = {
       id: Date.now(),
-      product_code_raw: '0065',
-      product_name_raw: 'Herbalifeline',
+      product_code_raw: '',
+      product_name_raw: '',
       unit: 'EA',
       quantity: 1,
-      unit_price_before_tax: 567421,
+      unit_price_before_tax: 0,
       tax_rate: 8,
-      import_price: 612815,
-      is_new_product: false,
-      current_stock: 10
+      import_price: 0,
+      is_new_product: true,
+      current_stock: 0
     };
     const newItems = [...draftOrder.items, newItem];
     const totalAmount = newItems.reduce((acc, curr) => (acc + (curr.quantity * curr.import_price)), 0);
@@ -289,8 +317,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
   // Submit confirmation
   const handleConfirmSubmit = async (selectedImportDate) => {
     if (!draftOrder) return;
-    setSubmitting(true);
 
+    // Validate that items are not empty
+    const validItems = draftOrder.items.filter(i => i.product_code_raw || i.product_name_raw);
+    if (validItems.length === 0) {
+      alert('Vui lòng nhập mã hoặc tên sản phẩm trước khi xác nhận nhập kho.');
+      return;
+    }
+
+    setSubmitting(true);
     const finalDate = selectedImportDate || draftImportDate;
 
     try {
@@ -298,7 +333,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: draftOrder.items,
+          items: validItems,
           import_date: finalDate
         })
       });
@@ -313,6 +348,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         setDraftOrder(null);
         setPreviewUrl(null);
         fetchPendingOrders();
+        fetchExistingProducts(); // Refresh products list
       } else {
         alert('Lỗi xác nhận: ' + data.error);
       }
@@ -326,9 +362,10 @@ export default function PurchaseImport({ onNavigateHistory }) {
 
   const calculateSummary = () => {
     if (!draftOrder) return { totalItems: 0, newProductsCount: 0, totalAmount: 0 };
-    const totalItems = draftOrder.items.length;
-    const newProductsCount = draftOrder.items.filter(i => i.is_new_product).length;
-    const totalAmount = draftOrder.items.reduce((acc, i) => acc + ((parseInt(i.quantity, 10) || 0) * (i.import_price || 0)), 0);
+    const validItems = draftOrder.items.filter(i => i.product_code_raw || i.product_name_raw);
+    const totalItems = validItems.length;
+    const newProductsCount = validItems.filter(i => i.is_new_product).length;
+    const totalAmount = validItems.reduce((acc, i) => acc + ((parseInt(i.quantity, 10) || 0) * (i.import_price || 0)), 0);
     return { totalItems, newProductsCount, totalAmount };
   };
 
@@ -501,7 +538,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                 Bảng Kiểm Tra & Chỉnh Sửa Đơn Nhập Hàng (Bản Nháp #{draftOrder.id})
               </div>
               <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                Trạng thái: <span className="badge badge-pending">Chờ Xác Nhận</span> — Bạn có thể nhập mã SP để tự động hiện tên/tồn kho và sửa lùi ngày nhập kho ngay dưới đây.
+                Trạng thái: <span className="badge badge-pending">Chờ Xác Nhận</span> — Nhập Mã SP (VD: 0065, 0146...) để tự động điền Tên SP, Giá & Tồn Kho hiện tại.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -583,7 +620,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>#</th>
-                  <th style={{ width: '120px' }}>Mã SP</th>
+                  <th style={{ width: '130px' }}>Mã SP</th>
                   <th>Tên Sản Phẩm</th>
                   <th style={{ width: '70px' }}>ĐVT</th>
                   <th style={{ width: '90px' }}>Số Lượng</th>
@@ -609,7 +646,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                     <tr key={item.id || idx}>
                       <td>{idx + 1}</td>
 
-                      {/* Product Code Input with suggestions matching */}
+                      {/* Product Code Input with suggestions list */}
                       <td>
                         <input
                           type="text"
@@ -618,6 +655,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           value={item.product_code_raw || ''}
                           onChange={(e) => handleItemChange(idx, 'product_code_raw', e.target.value)}
                           placeholder="Mã SP (VD: 0065)"
+                          list="existing-product-codes"
                         />
                       </td>
 
@@ -628,6 +666,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                           className="table-input"
                           value={item.product_name_raw || ''}
                           onChange={(e) => handleItemChange(idx, 'product_name_raw', e.target.value)}
+                          placeholder="Tên sản phẩm"
                         />
                       </td>
 
@@ -710,6 +749,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
               </tbody>
             </table>
           </div>
+
+          {/* Datalist for existing product code suggestions */}
+          <datalist id="existing-product-codes">
+            {existingProducts.map(p => (
+              <option key={p.id} value={p.product_code}>
+                {p.product_code} - {p.product_name} (Tồn: {p.quantity} {p.unit})
+              </option>
+            ))}
+          </datalist>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button className="btn btn-secondary" onClick={handleAddItem}>
