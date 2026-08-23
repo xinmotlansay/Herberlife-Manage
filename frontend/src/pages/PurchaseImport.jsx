@@ -620,15 +620,15 @@ export default function PurchaseImport({ onNavigateHistory }) {
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>#</th>
-                  <th style={{ width: '130px' }}>Mã SP</th>
-                  <th>Tên Sản Phẩm</th>
+                  <th style={{ width: '170px', minWidth: '150px' }}>Mã SP</th>
+                  <th style={{ minWidth: '200px' }}>Tên Sản Phẩm</th>
                   <th style={{ width: '70px' }}>ĐVT</th>
                   <th style={{ width: '90px' }}>Số Lượng</th>
-                  <th style={{ width: '140px' }}>Đơn Giá Trước Thuế (đ)</th>
+                  <th style={{ width: '150px' }}>Đơn Giá Trước Thuế (đ)</th>
                   <th style={{ width: '75px' }}>Thuế (%)</th>
-                  <th style={{ width: '130px' }}>Giá Nhập (gồm thuế)</th>
+                  <th style={{ width: '140px' }}>Giá Nhập (gồm thuế)</th>
                   <th style={{ width: '140px' }}>Thành Tiền (đ)</th>
-                  <th style={{ width: '160px' }}>Trạng Thái & Tồn Hiện Tại</th>
+                  <th style={{ width: '170px' }}>Trạng Thái & Tồn Hiện Tại</th>
                   <th style={{ width: '60px', textAlign: 'center' }}>Thao tác</th>
                 </tr>
               </thead>
@@ -651,7 +651,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
                         <input
                           type="text"
                           className="table-input"
-                          style={{ fontWeight: 700, color: '#064e3b' }}
+                          style={{ fontWeight: 800, color: '#064e3b', minWidth: '140px', padding: '0.45rem 0.55rem', fontSize: '0.9rem' }}
                           value={item.product_code_raw || ''}
                           onChange={(e) => handleItemChange(idx, 'product_code_raw', e.target.value)}
                           placeholder="Mã SP (VD: 0065)"
