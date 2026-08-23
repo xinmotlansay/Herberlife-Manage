@@ -241,12 +241,27 @@ router.post('/:id/confirm', (req, res) => {
       return res.status(400).json({ success: false, error: 'Đơn nhập hàng đã được xử lý hoặc huỷ' });
     }
 
-    const effectiveImportDate = req.body.import_date ? new Date(req.body.import_date).toISOString() : new Date().toISOString();
+    let effectiveImportDate = new Date().toISOString();
+    if (req.body.import_date) {
+      const parsedDate = new Date(req.body.import_date);
+      if (!isNaN(parsedDate.getTime())) {
+        effectiveImportDate = parsedDate.toISOString();
+      }
+    }
 
     // Execute in Database Transaction
     const confirmTx = db.transaction(() => {
       let grandTotal = 0;
       let newProductsCreatedCount = 0;
+
+      const checkPodStmt = db.prepare('SELECT id FROM purchase_order_details WHERE id = ? AND purchase_order_id = ?');
+
+      const insertPodStmt = db.prepare(`
+        INSERT INTO purchase_order_details (
+          purchase_order_id, product_id, product_code_raw, product_name_raw,
+          unit, quantity, unit_price_before_tax, tax_rate, import_price, is_new_product
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
       const updatePodStmt = db.prepare(`
         UPDATE purchase_order_details SET
@@ -287,6 +302,8 @@ router.post('/:id/confirm', (req, res) => {
         const taxRate = parseFloat(item.tax_rate) || 8;
         const importPrice = Math.round(unitPriceBefTax * (1 + taxRate / 100));
 
+        if (!code && !name) continue;
+
         let existingProd = findProductByCode.get(code);
 
         let isNewProduct = 0;
@@ -300,24 +317,43 @@ router.post('/:id/confirm', (req, res) => {
           productId = existingProd.id;
         }
 
-        // Update purchase order detail record
-        updatePodStmt.run(
-          productId,
-          code,
-          name,
-          unit,
-          qty,
-          unitPriceBefTax,
-          taxRate,
-          importPrice,
-          isNewProduct,
-          item.id
-        );
+        let detailId = null;
+        const existingPod = item.id ? checkPodStmt.get(item.id, purchaseOrderId) : null;
+
+        if (existingPod) {
+          detailId = existingPod.id;
+          updatePodStmt.run(
+            productId,
+            code,
+            name,
+            unit,
+            qty,
+            unitPriceBefTax,
+            taxRate,
+            importPrice,
+            isNewProduct,
+            detailId
+          );
+        } else {
+          const podRes = insertPodStmt.run(
+            purchaseOrderId,
+            productId,
+            code,
+            name,
+            unit,
+            qty,
+            unitPriceBefTax,
+            taxRate,
+            importPrice,
+            isNewProduct
+          );
+          detailId = podRes.lastInsertRowid;
+        }
 
         // Create inventory batch for FIFO
         insertBatchStmt.run(
           productId,
-          item.id,
+          detailId,
           qty,
           qty,
           importPrice,
