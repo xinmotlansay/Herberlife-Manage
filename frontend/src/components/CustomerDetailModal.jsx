@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, ShoppingBag, DollarSign, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { X, User, ShoppingBag, DollarSign, Calendar, CheckCircle2, Clock, AlertCircle, Layers } from 'lucide-react';
 import PaymentModal from './PaymentModal';
 
 export default function CustomerDetailModal({ isOpen, onClose, customerId, onRefresh }) {
   const [customerDetails, setCustomerDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Payment modal state
+  // Single payment modal state
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
+  // Bulk Payment state (FIFO Debt payoff across oldest orders)
+  const [isBulkPayOpen, setIsBulkPayOpen] = useState(false);
+  const [bulkPayAmount, setBulkPayAmount] = useState('');
+  const [bulkPayNote, setBulkPayNote] = useState('');
+  const [bulkPayLoading, setBulkPayLoading] = useState(false);
+  const [bulkPayError, setBulkPayError] = useState('');
 
   useEffect(() => {
     if (customerId && isOpen) {
@@ -46,9 +53,50 @@ export default function CustomerDetailModal({ isOpen, onClose, customerId, onRef
     if (onRefresh) onRefresh();
   };
 
+  const handleBulkPaySubmit = async (e) => {
+    e.preventDefault();
+    const payNum = parseFloat(bulkPayAmount);
+    if (!payNum || payNum <= 0) {
+      setBulkPayError('Vui lòng nhập số tiền thu nợ hợp lệ (> 0)');
+      return;
+    }
+
+    if (payNum > customerDetails.total_debt) {
+      setBulkPayError(`Số tiền thu (${payNum.toLocaleString('vi-VN')}đ) vượt quá tổng công nợ hiện tại (${customerDetails.total_debt.toLocaleString('vi-VN')}đ)`);
+      return;
+    }
+
+    setBulkPayLoading(true);
+    setBulkPayError('');
+
+    try {
+      const res = await fetch(`/api/customers/${customerId}/bulk-pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: payNum, note: bulkPayNote })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setIsBulkPayOpen(false);
+        setBulkPayAmount('');
+        setBulkPayNote('');
+        handlePaymentSuccess();
+      } else {
+        setBulkPayError(data.error || 'Đã có lỗi xảy ra');
+      }
+    } catch (err) {
+      console.error(err);
+      setBulkPayError('Không thể kết nối máy chủ');
+    } finally {
+      setBulkPayLoading(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '820px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content" style={{ maxWidth: '840px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <User size={26} color="#a7f3d0" />
@@ -82,7 +130,8 @@ export default function CustomerDetailModal({ isOpen, onClose, customerId, onRef
                 marginBottom: '1.5rem',
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
-                textAlign: 'center'
+                textAlign: 'center',
+                alignItems: 'center'
               }}>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Tổng Đơn Đã Mua</span>
@@ -92,23 +141,87 @@ export default function CustomerDetailModal({ isOpen, onClose, customerId, onRef
                 </div>
 
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: customerDetails.total_debt > 0 ? '#b45309' : '#047857', fontWeight: 700, textTransform: 'uppercase' }}>Tổng Công Nợ</span>
+                  <span style={{ fontSize: '0.75rem', color: customerDetails.total_debt > 0 ? '#b45309' : '#047857', fontWeight: 700, textTransform: 'uppercase' }}>Tổng Công Nợ Khách</span>
                   <div style={{ fontSize: '1.5rem', fontWeight: 800, color: customerDetails.total_debt > 0 ? '#92400e' : '#059669' }}>
                     {customerDetails.total_debt.toLocaleString('vi-VN')} đ
                   </div>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>Trạng Thái Công Nợ</span>
-                  <div style={{ marginTop: '0.25rem' }}>
-                    {customerDetails.total_debt > 0 ? (
-                      <span className="badge badge-pending">Đang Nợ Tiền</span>
-                    ) : (
-                      <span className="badge badge-confirmed">Đã Thanh Toán Hết</span>
-                    )}
-                  </div>
+                  {customerDetails.total_debt > 0 ? (
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: '0.65rem 1rem', fontSize: '0.85rem', width: '100%', fontWeight: 700 }}
+                      onClick={() => setIsBulkPayOpen(!isBulkPayOpen)}
+                    >
+                      <DollarSign size={16} /> Thu Nợ Gộp (Đơn Cũ Trừ Trước)
+                    </button>
+                  ) : (
+                    <span className="badge badge-confirmed" style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}>
+                      <CheckCircle2 size={14} /> Đã Thanh Toán Hết
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* Bulk Payment Collapse Form */}
+              {isBulkPayOpen && customerDetails.total_debt > 0 && (
+                <form onSubmit={handleBulkPaySubmit} style={{
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #f59e0b',
+                  borderRadius: '0.75rem',
+                  padding: '1.25rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#92400e', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Layers size={18} /> Ghi Nhận Thu Nợ Gộp (Áp dụng quy tắc Đơn nào mua trước trừ trước)
+                  </h4>
+                  <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '0.85rem' }}>
+                    Nhập số tiền khách hàng vừa thanh toán gộp. Hệ thống sẽ tự động trừ lần lượt vào các đơn mua hàng cũ nhất trước cho tới khi hết số tiền.
+                  </p>
+
+                  {bulkPayError && (
+                    <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                      {bulkPayError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px', gap: '0.75rem', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#92400e', marginBottom: '0.25rem' }}>
+                        Số tiền khách trả gộp (đ) <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={customerDetails.total_debt}
+                        className="table-input"
+                        placeholder={`Tối đa ${customerDetails.total_debt.toLocaleString('vi-VN')} đ`}
+                        value={bulkPayAmount}
+                        onChange={(e) => setBulkPayAmount(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#92400e', marginBottom: '0.25rem' }}>
+                        Ghi chú (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        className="table-input"
+                        placeholder="VD: Chuyển khoản Vietcombank..."
+                        value={bulkPayNote}
+                        onChange={(e) => setBulkPayNote(e.target.value)}
+                      />
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#d97706', borderColor: '#d97706', height: '38px', fontSize: '0.85rem' }} disabled={bulkPayLoading}>
+                      {bulkPayLoading ? 'Đang trừ...' : 'Xác Nhận Thu'}
+                    </button>
+                  </div>
+                </form>
+              )}
 
               <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem' }}>
                 Lịch Sử Mua Hàng & Thanh Toán:
@@ -241,7 +354,7 @@ export default function CustomerDetailModal({ isOpen, onClose, customerId, onRef
         </div>
       </div>
 
-      {/* Payment Popup Modal */}
+      {/* Single Order Payment Popup Modal */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}

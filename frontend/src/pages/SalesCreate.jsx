@@ -77,7 +77,7 @@ export default function SalesCreate({ onNavigateHistory }) {
         showAlert('Cảnh Báo Giới Hạn Tồn Kho', `Sản phẩm "${prod.product_name}" chỉ còn ${prod.quantity} ${prod.unit} khả dụng trong kho.`);
       }
     } else {
-      const suggestedPrice = prod.avg_import_price ? Math.round(prod.avg_import_price * 1.2) : 100000;
+      // Default selling_price = 0 so user explicitly inputs price
       setCartItems([
         ...cartItems,
         {
@@ -87,7 +87,8 @@ export default function SalesCreate({ onNavigateHistory }) {
           unit: prod.unit || 'EA',
           max_stock: prod.quantity,
           quantity: 1,
-          selling_price: suggestedPrice
+          selling_price: 0,
+          avg_import_price: prod.avg_import_price || 0
         }
       ]);
     }
@@ -559,10 +560,27 @@ export default function SalesCreate({ onNavigateHistory }) {
                               <input
                                 type="number"
                                 className="table-input"
-                                style={{ fontWeight: 700, color: '#047857', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }}
+                                style={{
+                                  fontWeight: 700,
+                                  color: item.selling_price === 0 ? '#b45309' : (item.avg_import_price > 0 && item.selling_price < item.avg_import_price ? '#ef4444' : '#047857'),
+                                  borderColor: item.selling_price === 0 ? '#f59e0b' : (item.avg_import_price > 0 && item.selling_price < item.avg_import_price ? '#fca5a5' : '#cbd5e1'),
+                                  backgroundColor: item.selling_price === 0 ? '#fffbeb' : (item.avg_import_price > 0 && item.selling_price < item.avg_import_price ? '#fef2f2' : '#ffffff'),
+                                  padding: '0.3rem 0.5rem',
+                                  fontSize: '0.82rem'
+                                }}
                                 value={item.selling_price}
                                 onChange={(e) => handleItemPriceChange(idx, e.target.value)}
                               />
+                              {item.selling_price === 0 && (
+                                <span style={{ fontSize: '0.68rem', color: '#d97706', fontWeight: 700, display: 'block', marginTop: '2px' }}>
+                                  ⚠️ Vui lòng nhập giá
+                                </span>
+                              )}
+                              {item.selling_price > 0 && item.avg_import_price > 0 && item.selling_price < item.avg_import_price && (
+                                <span style={{ fontSize: '0.68rem', color: '#ef4444', fontWeight: 800, display: 'block', marginTop: '2px' }}>
+                                  ⚠️ Thấp hơn giá nhập ({item.avg_import_price.toLocaleString('vi-VN')}đ) - Bán lỗ!
+                                </span>
+                              )}
                             </td>
                             <td style={{ fontWeight: 800, color: '#064e3b', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
                               {lineTotal.toLocaleString('vi-VN')} đ

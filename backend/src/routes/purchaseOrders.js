@@ -248,7 +248,7 @@ router.post('/:id/confirm', (req, res) => {
       return res.status(400).json({ success: false, error: 'Đơn nhập hàng đã được xử lý hoặc huỷ' });
     }
 
-    const now = new Date().toISOString();
+    const effectiveImportDate = req.body.import_date ? new Date(req.body.import_date).toISOString() : new Date().toISOString();
 
     // Execute in Database Transaction
     const confirmTx = db.transaction(() => {
@@ -328,11 +328,11 @@ router.post('/:id/confirm', (req, res) => {
           qty,
           qty,
           importPrice,
-          now
+          effectiveImportDate
         );
 
         // Update total product stock in products table
-        updateProductQtyStmt.run(qty, now, productId);
+        updateProductQtyStmt.run(qty, effectiveImportDate, productId);
 
         grandTotal += importPrice * qty;
       }
@@ -345,7 +345,7 @@ router.post('/:id/confirm', (req, res) => {
           confirmed_at = ?,
           total_amount = ?
         WHERE id = ?
-      `).run(now, now, grandTotal, purchaseOrderId);
+      `).run(effectiveImportDate, effectiveImportDate, grandTotal, purchaseOrderId);
 
       return { grandTotal, newProductsCreatedCount };
     });

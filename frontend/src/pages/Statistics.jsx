@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, DollarSign, Package, ShoppingCart, Calendar, ArrowRightLeft,
-  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock, Layers, Archive
+  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock, Layers, Archive, Printer
 } from 'lucide-react';
 
 export default function Statistics() {
@@ -51,6 +51,10 @@ export default function Statistics() {
     setSelectedYear(now.getFullYear());
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const mSummary = monthlyData ? monthlyData.summary : {};
   const ySummary = yearlyData ? yearlyData.summary : {};
   const nxtList = monthlyData ? (monthlyData.nxt_table || []) : [];
@@ -62,10 +66,10 @@ export default function Statistics() {
   const totalNxtClosingValue = nxtList.reduce((acc, r) => acc + (r.closing_value || 0), 0);
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', boxSizing: 'border-box' }} className="print-area">
       
       {/* Header Selector Bar */}
-      <div className="card" style={{ marginBottom: '1.5rem', padding: '1.25rem 1.5rem' }}>
+      <div className="card no-print" style={{ marginBottom: '1.5rem', padding: '1.25rem 1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <BarChart2 color="#059669" size={26} />
@@ -111,6 +115,10 @@ export default function Statistics() {
 
             <button className="btn btn-secondary" style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }} onClick={handleResetCurrentMonth}>
               <RefreshCw size={14} /> Tháng Hiện Tại
+            </button>
+
+            <button className="btn btn-primary" style={{ padding: '0.45rem 0.95rem', fontSize: '0.85rem', fontWeight: 700 }} onClick={handlePrint}>
+              <Printer size={15} /> In Báo Cáo / PDF
             </button>
           </div>
         </div>

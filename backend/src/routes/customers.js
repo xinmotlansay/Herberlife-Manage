@@ -252,4 +252,105 @@ router.post('/sales-orders/:id/payments', (req, res) => {
   }
 });
 
+/**
+ * POST /api/customers/:id/bulk-pay
+ * Lump-sum customer debt payment allocated to oldest unpaid orders first (FIFO Debt Payoff)
+ */
+router.post('/:id/bulk-pay', (req, res) => {
+  const customerId = req.params.id;
+  const { amount, note } = req.body;
+
+  const totalPayAmount = parseFloat(amount);
+  if (!totalPayAmount || totalPayAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Số tiền thu nợ phải lớn hơn 0' });
+  }
+
+  try {
+    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+    if (!customer) {
+      return res.status(404).json({ success: false, error: 'Không tìm thấy khách hàng' });
+    }
+
+    // Get unpaid/partially paid sales orders ordered by sale_date ASC (oldest first)
+    const unpaidOrders = db.prepare(`
+      SELECT * FROM sales_orders
+      WHERE customer_id = ? AND payment_status != 'paid'
+      ORDER BY sale_date ASC, id ASC
+    `).all(customerId);
+
+    if (unpaidOrders.length === 0) {
+      return res.status(400).json({ success: false, error: 'Khách hàng này hiện không còn nợ đơn hàng nào' });
+    }
+
+    const totalUnpaidDebt = unpaidOrders.reduce((acc, o) => acc + Math.max(0, o.total_amount - o.paid_amount), 0);
+
+    if (totalPayAmount > totalUnpaidDebt) {
+      return res.status(400).json({
+        success: false,
+        error: `Số tiền thu (${totalPayAmount.toLocaleString('vi-VN')}đ) vượt quá tổng nợ của khách (${totalUnpaidDebt.toLocaleString('vi-VN')}đ)`
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    const bulkPayTx = db.transaction(() => {
+      let remainingMoney = totalPayAmount;
+      const updatedOrders = [];
+
+      const insertPaymentStmt = db.prepare(`
+        INSERT INTO payments (sales_order_id, amount, payment_date, note)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      const updateOrderStmt = db.prepare(`
+        UPDATE sales_orders SET paid_amount = ?, payment_status = ? WHERE id = ?
+      `);
+
+      for (const order of unpaidOrders) {
+        if (remainingMoney <= 0) break;
+
+        const orderRemaining = Math.max(0, order.total_amount - order.paid_amount);
+        const payThisOrder = Math.min(orderRemaining, remainingMoney);
+
+        const newPaidAmount = order.paid_amount + payThisOrder;
+        let newStatus = 'unpaid';
+        if (newPaidAmount >= order.total_amount) {
+          newStatus = 'paid';
+        } else if (newPaidAmount > 0) {
+          newStatus = 'partial';
+        }
+
+        // Insert payment log for this order
+        insertPaymentStmt.run(order.id, payThisOrder, now, note || `Thu nợ gộp khách hàng (${payThisOrder.toLocaleString('vi-VN')}đ)`);
+
+        // Update sales order
+        updateOrderStmt.run(newPaidAmount, newStatus, order.id);
+
+        remainingMoney -= payThisOrder;
+        updatedOrders.push({ order_id: order.id, paid_this_order: payThisOrder, new_status: newStatus });
+      }
+
+      // Recalculate customer total_debt
+      const newTotalDebt = recalculateCustomerDebt(customerId);
+
+      return { newTotalDebt, updatedOrders };
+    });
+
+    const result = bulkPayTx();
+
+    res.json({
+      success: true,
+      message: `Đã thu ${totalPayAmount.toLocaleString('vi-VN')}đ và trừ nợ theo thứ tự đơn hàng cũ nhất trước!`,
+      data: {
+        customer_id: customerId,
+        new_total_debt: result.newTotalDebt,
+        updated_orders_count: result.updatedOrders.length
+      }
+    });
+  } catch (err) {
+    console.error('[Bulk Pay API] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
