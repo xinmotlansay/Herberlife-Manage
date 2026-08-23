@@ -14,15 +14,12 @@ function getMonthYear(req) {
 
 /**
  * 1. GET /api/reports/monthly
- * Returns Monthly Statistics & Monthly Inventory Roll-Forward (NXT) Table
+ * Returns Monthly Statistics & Monthly Inventory Roll-Forward (NXT) Table with Opening and Closing Inventory Values
  */
 router.get('/monthly', (req, res) => {
   try {
     const { month, year } = getMonthYear(req);
 
-    // Format ISO start and end strings for date matching
-    // Start of month: YYYY-MM-01 00:00:00
-    // End of month: YYYY-MM-LastDay 23:59:59
     const mStr = month.toString().padStart(2, '0');
     const lastDay = new Date(year, month, 0).getDate();
 
@@ -67,12 +64,16 @@ router.get('/monthly', (req, res) => {
     `);
     const importSummary = importStmt.get(startOfMonth, endOfMonth);
 
-    // 2. Inventory Roll-Forward (Nhập - Xuất - Tồn NXT) per product
-    // Products list
+    // 2. Inventory Roll-Forward (Nhập - Xuất - Tồn NXT) per product with Values
     const products = db.prepare('SELECT id, product_code, product_name, unit FROM products ORDER BY id ASC').all();
 
-    // Prepared queries for carry-over calculations
-    // Total imported before start of this month
+    const getAvgImportPriceStmt = db.prepare(`
+      SELECT COALESCE(SUM(pod.quantity * pod.import_price) / NULLIF(SUM(pod.quantity), 0), 0) as avg_price
+      FROM purchase_order_details pod
+      JOIN purchase_orders po ON pod.purchase_order_id = po.id
+      WHERE po.status = 'confirmed' AND pod.product_id = ?
+    `);
+
     const importedBeforeStmt = db.prepare(`
       SELECT COALESCE(SUM(pod.quantity), 0) as qty
       FROM purchase_order_details pod
@@ -80,7 +81,6 @@ router.get('/monthly', (req, res) => {
       WHERE po.status = 'confirmed' AND pod.product_id = ? AND po.import_date < ?
     `);
 
-    // Total sold before start of this month
     const soldBeforeStmt = db.prepare(`
       SELECT COALESCE(SUM(sod.quantity), 0) as qty
       FROM sales_order_details sod
@@ -88,41 +88,63 @@ router.get('/monthly', (req, res) => {
       WHERE sod.product_id = ? AND so.sale_date < ?
     `);
 
-    // Total imported during this month
     const importedMonthStmt = db.prepare(`
-      SELECT COALESCE(SUM(pod.quantity), 0) as qty
+      SELECT COALESCE(SUM(pod.quantity), 0) as qty, COALESCE(SUM(pod.quantity * pod.import_price), 0) as cost
       FROM purchase_order_details pod
       JOIN purchase_orders po ON pod.purchase_order_id = po.id
       WHERE po.status = 'confirmed' AND pod.product_id = ? AND po.import_date >= ? AND po.import_date <= ?
     `);
 
-    // Total sold during this month
     const soldMonthStmt = db.prepare(`
-      SELECT COALESCE(SUM(sod.quantity), 0) as qty
+      SELECT COALESCE(SUM(sod.quantity), 0) as qty, COALESCE(SUM(sod.cost_of_goods_sold), 0) as cogs
       FROM sales_order_details sod
       JOIN sales_orders so ON sod.sales_order_id = so.id
       WHERE sod.product_id = ? AND so.sale_date >= ? AND so.sale_date <= ?
     `);
 
+    let totalOpeningValue = 0;
+    let totalImportedValue = 0;
+    let totalSoldValue = 0;
+    let totalClosingValue = 0;
+
     const nxtTable = products.map(p => {
+      const avgPrice = getAvgImportPriceStmt.get(p.id).avg_price || 0;
+
       const impBefore = importedBeforeStmt.get(p.id, startOfMonth).qty;
       const soldBefore = soldBeforeStmt.get(p.id, startOfMonth).qty;
       const openingStock = Math.max(0, impBefore - soldBefore);
+      const openingValue = Math.round(openingStock * avgPrice);
 
-      const inMonthImport = importedMonthStmt.get(p.id, startOfMonth, endOfMonth).qty;
-      const inMonthSold = soldMonthStmt.get(p.id, startOfMonth, endOfMonth).qty;
+      const inMonthImp = importedMonthStmt.get(p.id, startOfMonth, endOfMonth);
+      const inMonthImportQty = inMonthImp.qty;
+      const inMonthImportCost = inMonthImp.cost;
 
-      const closingStock = Math.max(0, openingStock + inMonthImport - inMonthSold);
+      const inMonthSold = soldMonthStmt.get(p.id, startOfMonth, endOfMonth);
+      const inMonthSoldQty = inMonthSold.qty;
+      const inMonthSoldCost = inMonthSold.cogs;
+
+      const closingStock = Math.max(0, openingStock + inMonthImportQty - inMonthSoldQty);
+      const closingValue = Math.round(closingStock * avgPrice);
+
+      totalOpeningValue += openingValue;
+      totalImportedValue += inMonthImportCost;
+      totalSoldValue += inMonthSoldCost;
+      totalClosingValue += closingValue;
 
       return {
         product_id: p.id,
         product_code: p.product_code,
         product_name: p.product_name,
         unit: p.unit,
-        opening_stock: openingStock,     // Tồn Đầu Kỳ
-        imported_qty: inMonthImport,    // Nhập Trong Kỳ
-        sold_qty: inMonthSold,          // Xuất Trong Kỳ
-        closing_stock: closingStock     // Tồn Cuối Kỳ
+        avg_import_price: avgPrice,
+        opening_stock: openingStock,       // Tồn Đầu Số Lượng
+        opening_value: openingValue,       // Tồn Đầu Giá Trị (đ)
+        imported_qty: inMonthImportQty,   // Nhập Số Lượng
+        imported_value: inMonthImportCost, // Nhập Giá Trị (đ)
+        sold_qty: inMonthSoldQty,         // Xuất Số Lượng
+        sold_value: inMonthSoldCost,       // Xuất Giá Trị (đ)
+        closing_stock: closingStock,       // Tồn Cuối Số Lượng
+        closing_value: closingValue        // Tồn Cuối Giá Trị (đ)
       };
     });
 
@@ -138,7 +160,9 @@ router.get('/monthly', (req, res) => {
           monthly_imported_qty: importSummary.monthly_imported_qty,
           monthly_imported_cost: importSummary.monthly_imported_cost,
           monthly_sold_qty: monthlySoldQty,
-          monthly_order_count: salesSummary.monthly_order_count
+          monthly_order_count: salesSummary.monthly_order_count,
+          total_opening_inventory_value: totalOpeningValue, // Giá trị tồn đầu kỳ
+          total_closing_inventory_value: totalClosingValue  // Giá trị tồn cuối kỳ
         },
         nxt_table: nxtTable
       }

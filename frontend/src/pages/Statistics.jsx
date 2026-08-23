@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, DollarSign, Package, ShoppingCart, Calendar, ArrowRightLeft,
-  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock
+  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock, Layers, Archive
 } from 'lucide-react';
 
 export default function Statistics() {
@@ -53,6 +53,13 @@ export default function Statistics() {
 
   const mSummary = monthlyData ? monthlyData.summary : {};
   const ySummary = yearlyData ? yearlyData.summary : {};
+  const nxtList = monthlyData ? (monthlyData.nxt_table || []) : [];
+
+  // Totals for NXT Summary Table Footer
+  const totalNxtOpeningValue = nxtList.reduce((acc, r) => acc + (r.opening_value || 0), 0);
+  const totalNxtImportedValue = nxtList.reduce((acc, r) => acc + (r.imported_value || 0), 0);
+  const totalNxtSoldValue = nxtList.reduce((acc, r) => acc + (r.sold_value || 0), 0);
+  const totalNxtClosingValue = nxtList.reduce((acc, r) => acc + (r.closing_value || 0), 0);
 
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
@@ -67,7 +74,7 @@ export default function Statistics() {
                 Thống Kê Doanh Thu, Lợi Nhuận & Báo Cáo Nhập - Xuất - Tồn (NXT)
               </h2>
               <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                Hệ thống kết chuyển số tồn cuối tháng trước thành số tồn đầu tháng sau tự động
+                Đầy đủ Giá trị Hàng tồn đầu kỳ, Tồn cuối kỳ và kết chuyển số dư giữa các tháng
               </span>
             </div>
           </div>
@@ -116,15 +123,14 @@ export default function Statistics() {
         </div>
       ) : (
         <>
-          {/* SECTION 1: MONTHLY FINANCIAL KPI CARDS */}
+          {/* SECTION 1: MONTHLY FINANCIAL & INVENTORY VALUE KPI CARDS */}
           <div style={{ marginBottom: '1.75rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Calendar size={18} color="#059669" />
-              1. Thống Kê Chi Tiết Tháng {selectedMonth}/{selectedYear}:
+              1. Thống Kê Chi Tiết & Giá Trị Hàng Tồn Tháng {selectedMonth}/{selectedYear}:
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-              
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
               {/* Revenue Card */}
               <div className="card" style={{ marginBottom: 0, padding: '1.25rem' }}>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Doanh Thu Tháng {selectedMonth}</span>
@@ -147,18 +153,7 @@ export default function Statistics() {
                 </div>
               </div>
 
-              {/* Imported Qty Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Số Lượng Nhập Trong Tháng</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#3b82f6', marginTop: '0.2rem' }}>
-                  {mSummary.monthly_imported_qty || 0} SP
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>
-                  Tổng vốn nhập: {mSummary.monthly_imported_cost ? mSummary.monthly_imported_cost.toLocaleString('vi-VN') + 'đ' : '0đ'}
-                </div>
-              </div>
-
-              {/* Sold Qty Card */}
+              {/* Order Count Card */}
               <div className="card" style={{ marginBottom: 0, padding: '1.25rem' }}>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Số Lượng Bán Trong Tháng</span>
                 <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#d97706', marginTop: '0.2rem' }}>
@@ -168,15 +163,164 @@ export default function Statistics() {
                   Giá vốn xuất: {mSummary.monthly_cost_of_goods_sold ? mSummary.monthly_cost_of_goods_sold.toLocaleString('vi-VN') + 'đ' : '0đ'}
                 </div>
               </div>
+            </div>
+
+            {/* OPENING & CLOSING INVENTORY VALUE CARDS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+              
+              {/* Opening Inventory Value Card */}
+              <div className="card" style={{ marginBottom: 0, padding: '1.25rem', backgroundColor: '#f8fafc', borderLeft: '4px solid #3b82f6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase' }}>
+                      🏢 GIÁ TRỊ HÀNG TỒN ĐẦU KỲ (THÁNG {selectedMonth})
+                    </span>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1e40af', marginTop: '0.25rem' }}>
+                      {totalNxtOpeningValue.toLocaleString('vi-VN')} đ
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      (Kết chuyển từ giá trị tồn cuối tháng trước)
+                    </span>
+                  </div>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#dbeafe', borderRadius: '0.75rem', color: '#1e40af' }}>
+                    <Archive size={28} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Closing Inventory Value Card */}
+              <div className="card" style={{ marginBottom: 0, padding: '1.25rem', backgroundColor: '#ecfdf5', borderLeft: '4px solid #10b981' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>
+                      🏬 GIÁ TRỊ HÀNG TỒN CUỐI KỲ (THÁNG {selectedMonth})
+                    </span>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#064e3b', marginTop: '0.25rem' }}>
+                      {totalNxtClosingValue.toLocaleString('vi-VN')} đ
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#059669' }}>
+                      (Tự động chuyển thành giá trị tồn đầu tháng sau)
+                    </span>
+                  </div>
+                  <div style={{ padding: '0.75rem', backgroundColor: '#d1fae5', borderRadius: '0.75rem', color: '#047857' }}>
+                    <Package size={28} />
+                  </div>
+                </div>
+              </div>
 
             </div>
           </div>
 
-          {/* SECTION 2: YEARLY FINANCIAL STATS (LỰA CHỌN NĂM) */}
+          {/* SECTION 2: INVENTORY ROLL-FORWARD (NHẬP - XUẤT - TỒN NXT) TABLE WITH VALUES */}
+          <div className="card" style={{ marginBottom: '1.75rem' }}>
+            <div className="card-header">
+              <div className="card-title">
+                <ArrowRightLeft color="#059669" size={24} />
+                2. Báo Cáo Nhập - Xuất - Tồn Kho (Kế Chuyển Tồn Đầu & Tồn Cuối Kỳ Tháng {selectedMonth}/{selectedYear})
+              </div>
+            </div>
+
+            <div style={{ padding: '0.85rem 1.25rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#475569' }}>
+              💡 <strong>Giá trị hàng tồn:</strong> <strong style={{ color: '#1e40af' }}>Tồn Đầu Kỳ (đ)</strong> được tính theo giá nhập bình quân kết chuyển từ cuối tháng trước. <strong style={{ color: '#047857' }}>Tồn Cuối Kỳ (đ)</strong> = Tồn Đầu + Nhập Trong Kỳ - Xuất Trong Kỳ.
+            </div>
+
+            <div className="table-container">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '70px' }}>Mã SP</th>
+                    <th>Tên Sản Phẩm</th>
+                    <th style={{ width: '60px' }}>ĐVT</th>
+                    <th style={{ width: '160px', textAlign: 'right', backgroundColor: '#eff6ff' }}>
+                      1. Tồn Đầu Kỳ (SL / Giá Trị)
+                    </th>
+                    <th style={{ width: '160px', textAlign: 'right' }}>
+                      2. Nhập Trong Kỳ (SL / Giá Trị)
+                    </th>
+                    <th style={{ width: '160px', textAlign: 'right' }}>
+                      3. Xuất Trong Kỳ (SL / Giá Trị)
+                    </th>
+                    <th style={{ width: '180px', textAlign: 'right', backgroundColor: '#ecfdf5', color: '#064e3b' }}>
+                      4. Tồn Cuối Kỳ (SL / Giá Trị)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nxtList.map((row) => (
+                    <tr key={row.product_id}>
+                      <td style={{ fontWeight: 700, color: '#064e3b', fontSize: '0.8rem' }}>#{row.product_code}</td>
+                      <td style={{ fontWeight: 600, color: '#0f172a' }}>{row.product_name}</td>
+                      <td>{row.unit}</td>
+
+                      {/* 1. Tồn Đầu Kỳ (Số lượng & Giá trị) */}
+                      <td style={{ textAlign: 'right', backgroundColor: '#f8fafc' }}>
+                        <strong style={{ display: 'block', color: '#1e40af' }}>{row.opening_stock} {row.unit}</strong>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                          {row.opening_value ? row.opening_value.toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                        </span>
+                      </td>
+
+                      {/* 2. Nhập Trong Kỳ (Số lượng & Giá trị) */}
+                      <td style={{ textAlign: 'right' }}>
+                        <strong style={{ display: 'block', color: row.imported_qty > 0 ? '#2563eb' : '#94a3b8' }}>
+                          +{row.imported_qty} {row.unit}
+                        </strong>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                          {row.imported_value ? row.imported_value.toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                        </span>
+                      </td>
+
+                      {/* 3. Xuất Trong Kỳ (Số lượng & Giá trị) */}
+                      <td style={{ textAlign: 'right' }}>
+                        <strong style={{ display: 'block', color: row.sold_qty > 0 ? '#d97706' : '#94a3b8' }}>
+                          -{row.sold_qty} {row.unit}
+                        </strong>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                          {row.sold_value ? row.sold_value.toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                        </span>
+                      </td>
+
+                      {/* 4. Tồn Cuối Kỳ (Số lượng & Giá trị) */}
+                      <td style={{ textAlign: 'right', backgroundColor: '#ecfdf5' }}>
+                        <strong style={{ display: 'block', color: '#047857', fontSize: '0.95rem' }}>
+                          = {row.closing_stock} {row.unit}
+                        </strong>
+                        <span style={{ fontSize: '0.82rem', color: '#064e3b', fontWeight: 800 }}>
+                          {row.closing_value ? row.closing_value.toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {/* NXT Table Summary Total Row */}
+                <tfoot>
+                  <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 800 }}>
+                    <td colSpan="3" style={{ textAlign: 'right', color: '#0f172a', fontSize: '0.9rem' }}>
+                      TỔNG CỘNG GIÁ TRỊ TOÀN KHO:
+                    </td>
+                    <td style={{ textAlign: 'right', color: '#1e40af', fontSize: '0.95rem' }}>
+                      {totalNxtOpeningValue.toLocaleString('vi-VN')} đ
+                    </td>
+                    <td style={{ textAlign: 'right', color: '#2563eb', fontSize: '0.95rem' }}>
+                      {totalNxtImportedValue.toLocaleString('vi-VN')} đ
+                    </td>
+                    <td style={{ textAlign: 'right', color: '#d97706', fontSize: '0.95rem' }}>
+                      {totalNxtSoldValue.toLocaleString('vi-VN')} đ
+                    </td>
+                    <td style={{ textAlign: 'right', color: '#064e3b', fontSize: '1rem', backgroundColor: '#d1fae5' }}>
+                      {totalNxtClosingValue.toLocaleString('vi-VN')} đ
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* SECTION 3: YEARLY STATS & 12-MONTH TREND */}
           <div style={{ marginBottom: '1.75rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <TrendingUp size={18} color="#059669" />
-              2. Thống Kê Tổng Quan Cả Năm {selectedYear}:
+              3. Thống Kê Tổng Quan Cả Năm {selectedYear}:
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
@@ -209,74 +353,6 @@ export default function Statistics() {
                 </div>
               </div>
 
-            </div>
-          </div>
-
-          {/* SECTION 3: INVENTORY ROLL-FORWARD (NHẬP - XUẤT - TỒN NXT) TABLE */}
-          <div className="card" style={{ marginBottom: '1.75rem' }}>
-            <div className="card-header">
-              <div className="card-title">
-                <ArrowRightLeft color="#059669" size={24} />
-                3. Báo Cáo Nhập - Xuất - Tồn Kho (Kế Chuyển Tồn Đầu ➔ Tồn Cuối Kỳ Tháng {selectedMonth}/{selectedYear})
-              </div>
-            </div>
-
-            <div style={{ padding: '0.85rem 1.25rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#475569' }}>
-              💡 <strong>Quy Tắc Tồn Kho:</strong> <strong style={{ color: '#047857' }}>Tồn Đầu Kỳ (Tháng {selectedMonth})</strong> được tự động kết chuyển từ <strong style={{ color: '#047857' }}>Tồn Cuối Kỳ (Tháng {selectedMonth === 1 ? `12/${selectedYear - 1}` : `${selectedMonth - 1}/${selectedYear}`})</strong>.
-              Công thức: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', color: '#0f172a' }}>Tồn Cuối = Tồn Đầu + Nhập Trong Kỳ - Xuất Trong Kỳ</code>
-            </div>
-
-            <div className="table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '80px' }}>Mã SP</th>
-                    <th>Tên Sản Phẩm</th>
-                    <th style={{ width: '80px' }}>ĐVT</th>
-                    <th style={{ width: '130px', textAlign: 'center', backgroundColor: '#f1f5f9' }}>
-                      1. Tồn Đầu Kỳ (Đã Kết Chuyển)
-                    </th>
-                    <th style={{ width: '120px', textAlign: 'center', color: '#2563eb' }}>
-                      2. Nhập Trong Kỳ
-                    </th>
-                    <th style={{ width: '120px', textAlign: 'center', color: '#d97706' }}>
-                      3. Xuất Trong Kỳ
-                    </th>
-                    <th style={{ width: '140px', textAlign: 'center', backgroundColor: '#ecfdf5', color: '#064e3b' }}>
-                      4. Tồn Cuối Kỳ (Chuyển Tháng Sau)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthlyData && monthlyData.nxt_table && monthlyData.nxt_table.map((row) => (
-                    <tr key={row.product_id}>
-                      <td style={{ fontWeight: 700, color: '#064e3b' }}>#{row.product_code}</td>
-                      <td style={{ fontWeight: 600, color: '#0f172a' }}>{row.product_name}</td>
-                      <td>{row.unit}</td>
-
-                      {/* 1. Tồn Đầu Kỳ */}
-                      <td style={{ textAlign: 'center', fontWeight: 700, backgroundColor: '#f8fafc', color: '#475569' }}>
-                        {row.opening_stock} {row.unit}
-                      </td>
-
-                      {/* 2. Nhập Trong Kỳ */}
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: row.imported_qty > 0 ? '#2563eb' : '#94a3b8' }}>
-                        +{row.imported_qty} {row.unit}
-                      </td>
-
-                      {/* 3. Xuất Trong Kỳ */}
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: row.sold_qty > 0 ? '#d97706' : '#94a3b8' }}>
-                        -{row.sold_qty} {row.unit}
-                      </td>
-
-                      {/* 4. Tồn Cuối Kỳ */}
-                      <td style={{ textAlign: 'center', fontWeight: 800, backgroundColor: '#ecfdf5', color: '#047857', fontSize: '0.95rem' }}>
-                        = {row.closing_stock} {row.unit}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
 
