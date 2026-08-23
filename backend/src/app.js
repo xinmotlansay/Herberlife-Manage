@@ -6,6 +6,7 @@ const path = require('path');
 const db = require('./db/connection');
 const purchaseOrdersRouter = require('./routes/purchaseOrders');
 const productsRouter = require('./routes/products');
+const customersRouter = require('./routes/customers');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/customers', customersRouter);
+app.use('/api', customersRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
