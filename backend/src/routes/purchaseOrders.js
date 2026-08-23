@@ -18,14 +18,25 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname) || '.jpg';
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
     cb(null, 'invoice-' + uniqueSuffix + ext);
   }
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Chỉ hỗ trợ file hoá đơn có định dạng JPG, JPEG, PNG, WEBP hoặc PDF'));
+    }
+  }
 });
 
 /**

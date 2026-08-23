@@ -213,7 +213,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
             <input
               id="file-upload-input"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -221,13 +221,13 @@ export default function PurchaseImport({ onNavigateHistory }) {
               <FileText size={32} />
             </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem' }}>
-              Kéo thả hoặc bấm để chọn ảnh hoá đơn VAT Herbalife
+              Kéo thả hoặc bấm để chọn tệp hoá đơn VAT Herbalife
             </h3>
             <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
-              Hỗ trợ ảnh JPG, PNG. Hệ thống OCR sẽ tự động bóc tách Mã SP, Tên SP, ĐVT, Số lượng & Đơn giá trước thuế (8% VAT).
+              Hỗ trợ tệp <strong>JPG, JPEG, PNG, WEBP và PDF</strong>. Hệ thống OCR sẽ tự động bóc tách Mã SP, Tên SP, ĐVT, Số lượng & Đơn giá trước thuế (8% VAT).
             </p>
             <button className="btn btn-primary" type="button">
-              Chọn Tệp Ảnh
+              Chọn Tệp Hoá Đơn (JPG/PNG/PDF)
             </button>
           </div>
         </div>

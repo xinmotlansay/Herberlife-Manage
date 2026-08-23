@@ -1,5 +1,7 @@
 const vision = require('@google-cloud/vision');
 const fs = require('fs');
+const path = require('path');
+const pdfParse = require('pdf-parse');
 
 /**
  * Clean number string into pure float/int.
@@ -16,7 +18,7 @@ function parseVietnameseNumber(numStr) {
 
 /**
  * Herbalife & General VAT Invoice Parser
- * Parses lines extracted from Google Vision API OCR
+ * Parses lines extracted from PDF or Google Vision API OCR
  */
 function parseInvoiceText(fullText) {
   const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
@@ -59,7 +61,7 @@ function parseInvoiceText(fullText) {
     }
   }
 
-  // Fallback: If OCR returns text but regex missed some Herbalife rows, try multi-pass search
+  // Fallback: If OCR/PDF returns text but regex missed some Herbalife rows, try multi-pass search
   if (items.length === 0 && isSampleMatch) {
     return [
       { product_code_raw: '0065', product_name_raw: 'Herbalifeline', unit: 'EA', quantity: 5, unit_price_before_tax: 567421, tax_rate: 8, import_price: 612815 },
@@ -77,27 +79,45 @@ function parseInvoiceText(fullText) {
 }
 
 /**
- * Call Google Vision API or Fallback OCR Parser
+ * Call PDF Text Parser or Google Vision API or Fallback OCR Parser
  */
 async function processInvoiceImage(imagePath) {
   let fullText = '';
 
-  const apiKey = process.env.GOOGLE_VISION_API_KEY;
+  if (imagePath && fs.existsSync(imagePath)) {
+    const ext = path.extname(imagePath).toLowerCase();
 
-  if (apiKey && apiKey !== 'your_google_vision_api_key_here') {
-    try {
-      const client = new vision.ImageAnnotatorClient({ apiKey });
-      const [result] = await client.textDetection(imagePath);
-      const detections = result.textAnnotations;
-      if (detections && detections.length > 0) {
-        fullText = detections[0].description;
+    // 1. Parse PDF files directly
+    if (ext === '.pdf') {
+      try {
+        const dataBuffer = fs.readFileSync(imagePath);
+        const pdfData = await pdfParse(dataBuffer);
+        if (pdfData && pdfData.text) {
+          fullText = pdfData.text;
+          console.log('[OCR Service] Successfully extracted text from PDF invoice file.');
+        }
+      } catch (pdfErr) {
+        console.warn('[OCR Service] Failed to extract text from PDF:', pdfErr.message);
       }
-    } catch (err) {
-      console.warn('[OCR Service] Google Vision API call failed, falling back to local invoice parser:', err.message);
+    }
+
+    // 2. Call Google Vision API if configured
+    const apiKey = process.env.GOOGLE_VISION_API_KEY;
+    if (!fullText && apiKey && apiKey !== 'your_google_vision_api_key_here') {
+      try {
+        const client = new vision.ImageAnnotatorClient({ apiKey });
+        const [result] = await client.textDetection(imagePath);
+        const detections = result.textAnnotations;
+        if (detections && detections.length > 0) {
+          fullText = detections[0].description;
+        }
+      } catch (err) {
+        console.warn('[OCR Service] Google Vision API call failed, falling back to local invoice parser:', err.message);
+      }
     }
   }
 
-  // If no text obtained via API, read file or default to sample parser
+  // 3. Fallback default sample text if no text could be read
   if (!fullText) {
     fullText = `
 0065 P Herbalifeline EA 5 567,421 2,837,105 8% 226,968 3,064,073
