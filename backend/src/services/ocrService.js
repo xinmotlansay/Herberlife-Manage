@@ -1,7 +1,8 @@
 const vision = require('@google-cloud/vision');
 const fs = require('fs');
 const path = require('path');
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
+const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : (pdfParseModule && pdfParseModule.default ? pdfParseModule.default : null);
 
 /**
  * Clean number string into pure float/int.
