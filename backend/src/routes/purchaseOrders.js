@@ -137,6 +137,100 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
 });
 
 /**
+ * 1b. POST /api/purchase-orders/manual
+ * Create a new manual draft purchase order (status = 'pending_confirmation')
+ */
+router.post('/manual', (req, res) => {
+  try {
+    const { items, created_by } = req.body;
+    const initialItems = items && items.length > 0 ? items : [
+      {
+        product_code_raw: 'SP001',
+        product_name_raw: 'Sản phẩm Herbalife Mới',
+        unit: 'EA',
+        quantity: 1,
+        unit_price_before_tax: 100000,
+        tax_rate: 8
+      }
+    ];
+
+    const insertPo = db.prepare(`
+      INSERT INTO purchase_orders (invoice_image_url, status, created_by)
+      VALUES (NULL, 'pending_confirmation', ?)
+    `);
+    const result = insertPo.run(created_by || 'Chủ shop');
+    const purchaseOrderId = result.lastInsertRowid;
+
+    const findProductByCode = db.prepare('SELECT id FROM products WHERE product_code = ?');
+    const insertPod = db.prepare(`
+      INSERT INTO purchase_order_details (
+        purchase_order_id, product_id, product_code_raw, product_name_raw,
+        unit, quantity, unit_price_before_tax, tax_rate, import_price, is_new_product
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let draftTotal = 0;
+    const insertedItems = [];
+
+    for (const item of initialItems) {
+      const code = (item.product_code_raw || 'SP001').trim().toUpperCase();
+      const existingProd = findProductByCode.get(code);
+      const isNew = existingProd ? 0 : 1;
+      const productId = existingProd ? existingProd.id : null;
+      const qty = parseInt(item.quantity, 10) || 1;
+      const unitPriceBefTax = parseFloat(item.unit_price_before_tax) || 0;
+      const taxRate = parseFloat(item.tax_rate) || 8;
+      const importPrice = Math.round(unitPriceBefTax * (1 + taxRate / 100));
+
+      const detailRes = insertPod.run(
+        purchaseOrderId,
+        productId,
+        code,
+        item.product_name_raw || 'Sản phẩm mới',
+        item.unit || 'EA',
+        qty,
+        unitPriceBefTax,
+        taxRate,
+        importPrice,
+        isNew
+      );
+
+      const lineTotal = importPrice * qty;
+      draftTotal += lineTotal;
+
+      insertedItems.push({
+        id: detailRes.lastInsertRowid,
+        purchase_order_id: purchaseOrderId,
+        product_id: productId,
+        product_code_raw: code,
+        product_name_raw: item.product_name_raw || 'Sản phẩm mới',
+        unit: item.unit || 'EA',
+        quantity: qty,
+        unit_price_before_tax: unitPriceBefTax,
+        tax_rate: taxRate,
+        import_price: importPrice,
+        is_new_product: isNew === 1
+      });
+    }
+
+    db.prepare('UPDATE purchase_orders SET total_amount = ? WHERE id = ?').run(draftTotal, purchaseOrderId);
+
+    res.json({
+      success: true,
+      data: {
+        id: purchaseOrderId,
+        invoice_image_url: null,
+        status: 'pending_confirmation',
+        total_amount: draftTotal,
+        items: insertedItems
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * 2. POST /api/purchase-orders/:id/confirm
  * Confirm purchase order in a DB Transaction
  * Creates new products if needed, creates inventory_batches, and updates products stock

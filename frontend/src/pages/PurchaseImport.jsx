@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UploadCloud, FileText, CheckCircle, Trash2, Plus, Sparkles, AlertCircle, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UploadCloud, FileText, CheckCircle, Trash2, Plus, Sparkles, AlertCircle, Eye, Edit3, XCircle, Clock, ListFilter } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function PurchaseImport({ onNavigateHistory }) {
@@ -10,6 +10,109 @@ export default function PurchaseImport({ onNavigateHistory }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
+
+  // Pending confirmation orders state
+  const [pendingOrders, setPendingOrders] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
+  useEffect(() => {
+    fetchPendingOrders();
+  }, []);
+
+  const fetchPendingOrders = async () => {
+    setLoadingPending(true);
+    try {
+      const res = await fetch('/api/purchase-orders?status=pending_confirmation');
+      const data = await res.json();
+      if (data.success) {
+        setPendingOrders(data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const handleSelectPendingOrder = async (orderId) => {
+    setLoadingOcr(true);
+    try {
+      const res = await fetch(`/api/purchase-orders/${orderId}`);
+      const data = await res.json();
+      if (data.success) {
+        setDraftOrder(data.data);
+        setPreviewUrl(data.data.invoice_image_url || null);
+      } else {
+        alert('Lỗi: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Không thể nạp chi tiết đơn nháp');
+    } finally {
+      setLoadingOcr(false);
+    }
+  };
+
+  const handleCreateManualOrder = async () => {
+    setLoadingOcr(true);
+    setNotification(null);
+    try {
+      const res = await fetch('/api/purchase-orders/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          created_by: 'Chủ shop',
+          items: [
+            {
+              product_code_raw: 'SP001',
+              product_name_raw: 'Sản phẩm mới 01',
+              unit: 'EA',
+              quantity: 1,
+              unit_price_before_tax: 100000,
+              tax_rate: 8
+            }
+          ]
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDraftOrder(data.data);
+        setPreviewUrl(null);
+        fetchPendingOrders();
+      } else {
+        alert('Lỗi tạo đơn thủ công: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Không thể kết nối máy chủ');
+    } finally {
+      setLoadingOcr(false);
+    }
+  };
+
+  const handleCancelDraftOrder = async (idToCancel) => {
+    const targetId = idToCancel || (draftOrder ? draftOrder.id : null);
+    if (!targetId) return;
+
+    if (window.confirm(`Bạn có chắc muốn huỷ đơn nháp #${targetId}? Đơn nháp sẽ bị loại bỏ khỏi danh sách chờ.`)) {
+      try {
+        const res = await fetch(`/api/purchase-orders/${targetId}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          if (draftOrder && draftOrder.id === targetId) {
+            setDraftOrder(null);
+            setPreviewUrl(null);
+          }
+          fetchPendingOrders();
+        } else {
+          alert('Lỗi huỷ đơn: ' + data.error);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối máy chủ');
+      }
+    }
+  };
 
   // Handle file select or drag-drop
   const handleFileChange = (e) => {
@@ -47,6 +150,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
 
       if (data.success) {
         setDraftOrder(data.data);
+        fetchPendingOrders();
       } else {
         alert('Lỗi đọc OCR: ' + data.error);
       }
@@ -148,6 +252,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         });
         setDraftOrder(null);
         setPreviewUrl(null);
+        fetchPendingOrders();
       } else {
         alert('Lỗi xác nhận: ' + data.error);
       }
@@ -193,17 +298,86 @@ export default function PurchaseImport({ onNavigateHistory }) {
         </div>
       )}
 
+      {/* Pending Confirmation Orders Bar */}
+      {pendingOrders.length > 0 && !draftOrder && (
+        <div className="card" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a' }}>
+          <div className="card-header" style={{ borderColor: '#fef3c7', marginBottom: '0.75rem' }}>
+            <div className="card-title" style={{ color: '#92400e' }}>
+              <Clock color="#b45309" size={22} />
+              Danh Sách Đơn Nhập Chờ Xác Nhận ({pendingOrders.length} đơn)
+            </div>
+            <span style={{ fontSize: '0.85rem', color: '#b45309' }}>
+              Bấm vào đơn bên dưới để xem, chỉnh sửa hoặc xác nhận cộng kho
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {pendingOrders.map(po => (
+              <div
+                key={po.id}
+                style={{
+                  backgroundColor: 'white',
+                  border: '1px solid #fde68a',
+                  borderRadius: '0.75rem',
+                  padding: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => handleSelectPendingOrder(po.id)}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+                    Đơn Nháp #{po.id} {po.invoice_image_url ? '(OCR)' : '(Thủ công)'}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+                    {po.item_count || 0} mặt hàng • {po.total_amount ? po.total_amount.toLocaleString('vi-VN') + ' đ' : '0 đ'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+                    onClick={(e) => { e.stopPropagation(); handleSelectPendingOrder(po.id); }}
+                  >
+                    <Edit3 size={14} /> Xử lý
+                  </button>
+                  <button
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}
+                    onClick={(e) => { e.stopPropagation(); handleCancelDraftOrder(po.id); }}
+                    title="Huỷ đơn nháp này"
+                  >
+                    <XCircle size={20} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Upload / Manual Import Option */}
       {!draftOrder && (
         <div className="card">
           <div className="card-header">
             <div className="card-title">
               <UploadCloud color="#059669" size={24} />
-              Upload Hoá Đơn Nhập Hàng Herbalife
+              Tạo Đơn Nhập Hàng Herbalife Mới
             </div>
-            <button className="btn btn-secondary" onClick={handleUseSample}>
-              <Sparkles size={16} color="#059669" />
-              Thử Mẫu Hoá Đơn Herbalife VAT
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn btn-secondary" onClick={handleCreateManualOrder}>
+                <Edit3 size={16} color="#059669" />
+                Nhập Hàng Thủ Công
+              </button>
+              <button className="btn btn-secondary" onClick={handleUseSample}>
+                <Sparkles size={16} color="#059669" />
+                Thử Mẫu Hoá Đơn Herbalife VAT
+              </button>
+            </div>
           </div>
 
           <div
@@ -226,9 +400,18 @@ export default function PurchaseImport({ onNavigateHistory }) {
             <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
               Hỗ trợ tệp <strong>JPG, JPEG, PNG, WEBP và PDF</strong>. Hệ thống OCR sẽ tự động bóc tách Mã SP, Tên SP, ĐVT, Số lượng & Đơn giá trước thuế (8% VAT).
             </p>
-            <button className="btn btn-primary" type="button">
-              Chọn Tệp Hoá Đơn (JPG/PNG/PDF)
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+              <button className="btn btn-primary" type="button">
+                Quét Tệp Hoá Đơn (OCR)
+              </button>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleCreateManualOrder(); }}
+              >
+                Nhập Hàng Thủ Công
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -239,10 +422,10 @@ export default function PurchaseImport({ onNavigateHistory }) {
             <Sparkles size={32} color="#059669" />
           </div>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#064e3b', marginBottom: '0.5rem' }}>
-            Đang Quét OCR Hoá Đơn Herbalife...
+            Đang Xử Lý Đơn Nhập Hàng Herbalife...
           </h3>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-            Vui lòng chờ trong giây lát. Hệ thống đang phân tích các dòng sản phẩm, tính toán giá vốn và match kho.
+            Vui lòng chờ trong giây lát. Hệ thống đang phân tích các dòng sản phẩm, tính toán giá vốn và đối soát kho.
           </p>
         </div>
       )}
@@ -260,8 +443,11 @@ export default function PurchaseImport({ onNavigateHistory }) {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn btn-danger" onClick={() => handleCancelDraftOrder(draftOrder.id)}>
+                <XCircle size={16} /> Huỷ Đơn Nháp
+              </button>
               <button className="btn btn-secondary" onClick={() => setDraftOrder(null)}>
-                Tải Ảnh Khác
+                Đóng / Chọn Đơn Khác
               </button>
               <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
                 <CheckCircle size={18} />

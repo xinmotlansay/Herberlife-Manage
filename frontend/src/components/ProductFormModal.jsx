@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, PackagePlus, Edit, AlertCircle } from 'lucide-react';
+import { X, PackagePlus, Edit, AlertCircle, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 
 export default function ProductFormModal({ isOpen, onClose, onSave, initialData }) {
   const [formData, setFormData] = useState({
@@ -10,6 +10,7 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -34,6 +35,36 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files ? e.target.files[0] : null;
+    if (!file) return;
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      const data = new FormData();
+      data.append('image', file);
+
+      const res = await fetch('/api/products/upload-image', {
+        method: 'POST',
+        body: data
+      });
+      const resData = await res.json();
+
+      if (resData.success) {
+        setFormData(prev => ({ ...prev, image_url: resData.image_url }));
+      } else {
+        setError('Lỗi tải ảnh: ' + resData.error);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Không thể tải tệp ảnh lên máy chủ');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,7 +105,7 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {initialData ? <Edit size={24} color="#a7f3d0" /> : <PackagePlus size={24} color="#a7f3d0" />}
@@ -170,20 +201,89 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
               )}
             </div>
 
+            {/* Image Upload Area */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.35rem', color: '#334155' }}>
-                Link Ảnh Sản Phẩm (Optional)
+                Hình Ảnh Sản Phẩm
               </label>
-              <input
-                type="url"
-                className="table-input"
-                placeholder="https://..."
-                value={formData.image_url}
-                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              />
-              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-                Để trống nếu không có ảnh nhận diện (ảnh sẽ hiển thị icon mặc định).
-              </p>
+
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                {formData.image_url ? (
+                  <div style={{ position: 'relative', width: '70px', height: '70px' }}>
+                    <img
+                      src={formData.image_url}
+                      alt="Preview"
+                      style={{ width: '70px', height: '70px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #cbd5e1' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, image_url: '' })}
+                      style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Gỡ ảnh"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{
+                    width: '70px',
+                    height: '70px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f1f5f9',
+                    border: '1px dashed #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#94a3b8'
+                  }}>
+                    <ImageIcon size={28} />
+                  </div>
+                )}
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+                      onClick={() => document.getElementById('prod-img-upload-input').click()}
+                      disabled={uploadingImage}
+                    >
+                      <Upload size={14} />
+                      {uploadingImage ? 'Đang tải ảnh...' : 'Tải Ảnh Từ Máy Tính'}
+                    </button>
+                    <input
+                      id="prod-img-upload-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      style={{ display: 'none' }}
+                      onChange={handleFileUpload}
+                    />
+                  </div>
+
+                  <input
+                    type="text"
+                    className="table-input"
+                    placeholder="Hoặc dán Link URL ảnh (https://...)"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
 
             <div style={{
@@ -194,7 +294,7 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
               color: '#065f46',
               border: '1px solid #a7f3d0'
             }}>
-              💡 <strong>Lưu ý:</strong> Số lượng tồn kho được tự động cộng khi Nhập hàng theo hoá đơn và giảm khi Bán hàng theo cơ chế FIFO. Không chỉnh sửa tồn kho thủ công.
+              💡 <strong>Lưu ý:</strong> Ảnh tải lên từ máy sẽ được tối ưu và lưu trực tiếp trong thư mục local. Số lượng tồn kho được tự động cập nhật khi Nhập/Bán hàng.
             </div>
           </div>
 
@@ -202,7 +302,7 @@ export default function ProductFormModal({ isOpen, onClose, onSave, initialData 
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
               Huỷ
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button type="submit" className="btn btn-primary" disabled={loading || uploadingImage}>
               {loading ? 'Đang lưu...' : (initialData ? 'Cập Nhật' : 'Tạo Sản Phẩm')}
             </button>
           </div>

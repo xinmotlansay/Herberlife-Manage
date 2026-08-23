@@ -1,6 +1,55 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const db = require('../db/connection');
+
+// Product Image Storage
+const prodUploadDir = path.join(__dirname, '../../uploads/products');
+if (!fs.existsSync(prodUploadDir)) {
+  fs.mkdirSync(prodUploadDir, { recursive: true });
+}
+
+const prodStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, prodUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, 'prod-' + uniqueSuffix + ext);
+  }
+});
+
+const uploadProductImage = multer({
+  storage: prodStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype) || file.originalname.match(/\.(jpg|jpeg|png|webp)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Chỉ chấp nhận file ảnh JPG, JPEG, PNG, WEBP'));
+    }
+  }
+});
+
+/**
+ * POST /api/products/upload-image
+ * Upload local product image file
+ */
+router.post('/upload-image', uploadProductImage.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Không tìm thấy tệp ảnh tải lên' });
+    }
+    const relativeUrl = '/uploads/products/' + req.file.filename;
+    res.json({ success: true, image_url: relativeUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 /**
  * GET /api/products
