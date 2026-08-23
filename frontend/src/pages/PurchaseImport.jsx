@@ -233,14 +233,17 @@ export default function PurchaseImport({ onNavigateHistory }) {
   };
 
   // Submit confirmation
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = async (selectedImportDate) => {
     if (!draftOrder) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/purchase-orders/${draftOrder.id}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: draftOrder.items })
+        body: JSON.stringify({
+          items: draftOrder.items,
+          import_date: selectedImportDate
+        })
       });
       const data = await res.json();
 
@@ -248,7 +251,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         setIsModalOpen(false);
         setNotification({
           type: 'success',
-          message: `Xác nhận đơn nhập #${draftOrder.id} thành công! Đã cộng ${draftOrder.items.length} dòng hàng vào kho.`
+          message: `Xác nhận đơn nhập #${draftOrder.id} thành công! Đã cộng ${draftOrder.items.length} dòng hàng vào kho với ngày nhập: ${new Date(selectedImportDate || Date.now()).toLocaleDateString('vi-VN')}.`
         });
         setDraftOrder(null);
         setPreviewUrl(null);

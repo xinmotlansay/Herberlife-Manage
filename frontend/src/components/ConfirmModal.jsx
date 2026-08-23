@@ -1,10 +1,21 @@
-import React from 'react';
-import { AlertTriangle, CheckCircle2, X, PackagePlus, DollarSign, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertTriangle, CheckCircle2, X, PackagePlus, DollarSign, Layers, Calendar } from 'lucide-react';
 
 export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, loading }) {
+  // Default to current local date-time formatted as YYYY-MM-DDTHH:mm
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  const defaultDateTime = now.toISOString().slice(0, 16);
+
+  const [importDate, setImportDate] = useState(defaultDateTime);
+
   if (!isOpen) return null;
 
   const { totalItems, newProductsCount, totalAmount } = summary;
+
+  const handleConfirmClick = () => {
+    onConfirm(importDate);
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -14,7 +25,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, load
             <CheckCircle2 size={28} color="#a7f3d0" />
             <div>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Xác Nhận Nhập Hàng Vào Kho</h2>
-              <p style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>Vui lòng kiểm tra lại thông tin trước khi xác nhận</p>
+              <p style={{ fontSize: '0.85rem', color: '#a7f3d0' }}>Chọn ngày giờ nhập kho (Hỗ trợ nhập bổ sung tháng trước)</p>
             </div>
           </div>
           <button 
@@ -26,12 +37,38 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, load
         </div>
 
         <div className="modal-body">
+          
+          {/* Backdated Import Date Selector Box */}
+          <div style={{
+            backgroundColor: '#eff6ff',
+            border: '1.5px solid #60a5fa',
+            borderRadius: '0.75rem',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.25rem'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.88rem', fontWeight: 800, color: '#1e40af', marginBottom: '0.4rem' }}>
+              <Calendar size={18} color="#2563eb" />
+              Ngày Giờ Nhập Kho (Chọn lùi ngày bổ sung cho tháng trước):
+            </label>
+            <input
+              type="datetime-local"
+              className="table-input"
+              style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.95rem', fontWeight: 700, color: '#1e3a8a', backgroundColor: '#ffffff' }}
+              value={importDate}
+              onChange={(e) => setImportDate(e.target.value)}
+              required
+            />
+            <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginTop: '0.25rem', display: 'block' }}>
+              💡 Nếu bạn đang nhập bổ sung hàng cho các tháng trước (VD: Tháng 7/2026), vui lòng chọn ngày giờ trong tháng đó.
+            </span>
+          </div>
+
           <div style={{
             backgroundColor: '#ecfdf5',
             border: '1px solid #a7f3d0',
             borderRadius: '0.75rem',
             padding: '1.25rem',
-            marginBottom: '1.5rem'
+            marginBottom: '1.25rem'
           }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', textAlign: 'center' }}>
               <div>
@@ -77,21 +114,17 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, load
             }}>
               <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong>Lưu ý:</strong> Hệ thống sẽ tự động khởi tạo <strong>{newProductsCount} sản phẩm mới</strong> vào danh mục kho với hình ảnh nhận diện trống (NULL) và cộng đúng số lượng tồn kho theo hoá đơn.
+                <strong>Lưu ý:</strong> Hệ thống sẽ tự động khởi tạo <strong>{newProductsCount} sản phẩm mới</strong> vào danh mục kho và cộng đúng số lượng tồn kho theo ngày nhập đã chọn.
               </div>
             </div>
           )}
-
-          <p style={{ fontSize: '0.9rem', color: '#475569', textAlign: 'center' }}>
-            Sau khi bấm <strong>"Xác Nhận Nhập Kho"</strong>, số lượng sẽ được cộng trực tiếp vào kho và đơn hàng sẽ không thể chỉnh sửa.
-          </p>
         </div>
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose} disabled={loading}>
             Quay lại kiểm tra
           </button>
-          <button className="btn btn-primary" onClick={onConfirm} disabled={loading}>
+          <button className="btn btn-primary" onClick={handleConfirmClick} disabled={loading}>
             {loading ? 'Đang cộng vào kho...' : 'Xác Nhận Nhập Kho'}
           </button>
         </div>
