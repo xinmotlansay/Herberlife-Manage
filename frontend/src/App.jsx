@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UploadCloud, History, Package, Users, ShoppingCart, ShoppingBag, BarChart2, ShieldCheck, Leaf } from 'lucide-react';
+import { UploadCloud, History, Package, Users, ShoppingCart, ShoppingBag, BarChart2, ShieldCheck, Leaf, Database } from 'lucide-react';
 import PurchaseImport from './pages/PurchaseImport';
 import PurchaseHistory from './pages/PurchaseHistory';
 import InventoryView from './pages/InventoryView';
@@ -7,6 +7,7 @@ import Customers from './pages/Customers';
 import SalesCreate from './pages/SalesCreate';
 import SalesHistory from './pages/SalesHistory';
 import Statistics from './pages/Statistics';
+import BackupRestoreModal from './components/BackupRestoreModal';
 
 const VALID_TABS = ['import', 'history', 'inventory', 'customers', 'sales_create', 'sales_history', 'statistics'];
 
@@ -20,6 +21,7 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState(getTabFromHash);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   // Sync active tab with URL Hash & Browser Back/Forward buttons
   useEffect(() => {
@@ -133,6 +135,21 @@ export default function App() {
             <BarChart2 className="icon" />
             <span>7. Thống Kê & Báo Cáo</span>
           </div>
+
+          {/* Backup & Restore Action Button */}
+          <div
+            className="nav-item"
+            onClick={() => setIsBackupModalOpen(true)}
+            style={{
+              marginTop: '0.75rem',
+              backgroundColor: 'rgba(16, 185, 129, 0.18)',
+              color: '#34d399',
+              border: '1px dashed rgba(52, 211, 153, 0.5)'
+            }}
+          >
+            <Database className="icon" color="#34d399" />
+            <span>💾 Sao Lưu & Khôi Phục</span>
+          </div>
         </nav>
 
         <div style={{ marginTop: 'auto', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
@@ -153,6 +170,12 @@ export default function App() {
         {activeTab === 'sales_history' && <SalesHistory />}
         {activeTab === 'statistics' && <Statistics />}
       </main>
+
+      {/* Backup & Restore Modal */}
+      <BackupRestoreModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+      />
     </div>
   );
 }

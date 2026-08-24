@@ -7,6 +7,8 @@ frontend/node_modules/
 backend/data/*.sqlite
 backend/data/*.sqlite-journal
 backend/data/*.db
+backend/backups/*.sqlite
+backend/tmp_restore/
 
 # Environment variables
 .env
