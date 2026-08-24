@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, DollarSign, Package, ShoppingCart, Calendar, ArrowRightLeft,
-  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock, Layers, Archive, Printer
+  Award, AlertTriangle, RefreshCw, BarChart2, CheckCircle2, Clock, Layers, Archive, Printer, PackageCheck
 } from 'lucide-react';
 
 export default function Statistics() {
