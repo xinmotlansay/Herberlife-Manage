@@ -229,7 +229,7 @@ router.post('/', (req, res) => {
  */
 router.get('/', (req, res) => {
   try {
-    const { from, to, payment_status, customer_id } = req.query;
+    const { from, to, payment_status, customer_id, month, year } = req.query;
     let query = `
       SELECT so.*, c.full_name as customer_name, c.phone as customer_phone
       FROM sales_orders so
@@ -246,13 +246,32 @@ router.get('/', (req, res) => {
       query += ' AND so.customer_id = ?';
       params.push(customer_id);
     }
-    if (from) {
-      query += ' AND so.sale_date >= ?';
-      params.push(from);
-    }
-    if (to) {
-      query += ' AND so.sale_date <= ?';
-      params.push(to);
+    if (month && year && month !== 'all') {
+      const mInt = parseInt(month, 10);
+      const yInt = parseInt(year, 10);
+      const mStr = mInt.toString().padStart(2, '0');
+      const lastDay = new Date(yInt, mInt, 0).getDate();
+      const startOfMonth = `${yInt}-${mStr}-01T00:00:00.000Z`;
+      const endOfMonth = `${yInt}-${mStr}-${lastDay.toString().padStart(2, '0')}T23:59:59.999Z`;
+
+      query += ' AND so.sale_date >= ? AND so.sale_date <= ?';
+      params.push(startOfMonth, endOfMonth);
+    } else if (year) {
+      const yInt = parseInt(year, 10);
+      const startOfYear = `${yInt}-01-01T00:00:00.000Z`;
+      const endOfYear = `${yInt}-12-31T23:59:59.999Z`;
+
+      query += ' AND so.sale_date >= ? AND so.sale_date <= ?';
+      params.push(startOfYear, endOfYear);
+    } else {
+      if (from) {
+        query += ' AND so.sale_date >= ?';
+        params.push(from);
+      }
+      if (to) {
+        query += ' AND so.sale_date <= ?';
+        params.push(to);
+      }
     }
 
     query += ' ORDER BY so.id DESC';

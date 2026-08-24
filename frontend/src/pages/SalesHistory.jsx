@@ -1,26 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Eye, Calendar, User, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Search, Eye, Calendar, User, CheckCircle2, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import SalesOrderDetailModal from '../components/SalesOrderDetailModal';
 
 export default function SalesHistory() {
+  const now = new Date();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
+
+  // Month & Year Filter State
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   useEffect(() => {
     fetchOrders();
-  }, [paymentStatusFilter]);
+  }, [paymentStatusFilter, selectedMonth, selectedYear]);
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      let url = '/api/sales-orders';
-      if (paymentStatusFilter) {
-        url += `?payment_status=${paymentStatusFilter}`;
-      }
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (paymentStatusFilter) params.append('payment_status', paymentStatusFilter);
+      if (selectedMonth) params.append('month', selectedMonth);
+      if (selectedYear) params.append('year', selectedYear);
+
+      const res = await fetch(`/api/sales-orders?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setOrders(data.data);
@@ -32,6 +39,12 @@ export default function SalesHistory() {
     }
   };
 
+  const handleResetCurrentMonth = () => {
+    setSelectedMonth(now.getMonth() + 1);
+    setSelectedYear(now.getFullYear());
+    setPaymentStatusFilter('');
+  };
+
   const handleViewDetail = (id) => {
     setSelectedOrderId(id);
     setIsDetailOpen(true);
@@ -40,34 +53,75 @@ export default function SalesHistory() {
   return (
     <div>
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: '1rem' }}>
           <div className="card-title">
             <ShoppingBag color="#059669" size={24} />
             Lịch Sử Đơn Bán Hàng & Phân Bổ FIFO
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 600 }}>Lọc trạng thái thanh toán:</span>
-            <select
-              className="table-input"
-              style={{ width: '180px' }}
-              value={paymentStatusFilter}
-              onChange={(e) => setPaymentStatusFilter(e.target.value)}
-            >
-              <option value="">Tất cả đơn bán</option>
-              <option value="paid">🟢 Đã thanh toán</option>
-              <option value="partial">🟡 Trả một phần</option>
-              <option value="unpaid">🔴 Chưa thanh toán</option>
-            </select>
+          {/* Month, Year & Status Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            
+            {/* Month selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Tháng:</span>
+              <select
+                className="table-input"
+                style={{ width: '120px', padding: '0.45rem 0.65rem', fontWeight: 700 }}
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                <option value="all">Tất cả tháng</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>Tháng {m}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Năm:</span>
+              <select
+                className="table-input"
+                style={{ width: '110px', padding: '0.45rem 0.65rem', fontWeight: 700 }}
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+              >
+                {[2026, 2025, 2024, 2023].map(y => (
+                  <option key={y} value={y}>Năm {y}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Payment Status selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Thanh toán:</span>
+              <select
+                className="table-input"
+                style={{ width: '160px', padding: '0.45rem 0.65rem', fontWeight: 600 }}
+                value={paymentStatusFilter}
+                onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              >
+                <option value="">Tất cả đơn bán</option>
+                <option value="paid">🟢 Đã thanh toán</option>
+                <option value="partial">🟡 Trả một phần</option>
+                <option value="unpaid">🔴 Chưa thanh toán</option>
+              </select>
+            </div>
+
+            <button className="btn btn-secondary" style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }} onClick={handleResetCurrentMonth}>
+              <RefreshCw size={14} /> Tháng Hiện Tại
+            </button>
+
           </div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>Đang tải lịch sử bán hàng...</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Đang tải danh sách đơn bán hàng...</div>
         ) : orders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3.5rem', color: '#94a3b8' }}>
-            <ShoppingBag size={48} style={{ opacity: 0.5, marginBottom: '0.5rem' }} />
-            <p>Chưa có đơn bán hàng nào trong hệ thống.</p>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+            <ShoppingBag size={48} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+            <p>Không có đơn bán hàng nào trong khoảng thời gian được chọn.</p>
           </div>
         ) : (
           <div className="table-container">
@@ -75,66 +129,53 @@ export default function SalesHistory() {
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>Mã Đơn</th>
+                  <th>Tên Khách Hàng</th>
+                  <th>SĐT Khách</th>
                   <th>Ngày Bán</th>
-                  <th>Khách Hàng Mua</th>
-                  <th style={{ width: '100px' }}>Số Dòng SP</th>
-                  <th>Tổng Tiền Đơn (đ)</th>
-                  <th>Đã Thanh Toán (đ)</th>
-                  <th>Còn Nợ Lại (đ)</th>
+                  <th>Số Lượng SP</th>
+                  <th>Tổng Tiền (đ)</th>
+                  <th>Đã Trả (đ)</th>
                   <th>Trạng Thái</th>
-                  <th style={{ width: '100px', textAlign: 'center' }}>Thao Tác</th>
+                  <th style={{ width: '100px', textAlign: 'center' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id}>
-                    <td style={{ fontWeight: 700, color: '#064e3b' }}>#{order.id}</td>
+                {orders.map(o => (
+                  <tr key={o.id}>
+                    <td style={{ fontWeight: 700, color: '#064e3b' }}>#{o.id}</td>
+                    <td style={{ fontWeight: 600, color: '#0f172a' }}>{o.customer_name}</td>
+                    <td>{o.customer_phone || 'Chưa có SĐT'}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }}>
-                        <Calendar size={14} color="#64748b" />
-                        {new Date(order.sale_date || order.created_at).toLocaleString('vi-VN')}
-                      </div>
+                      <Calendar size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: '#64748b' }} />
+                      {new Date(o.sale_date || o.created_at).toLocaleString('vi-VN')}
                     </td>
-                    <td style={{ fontWeight: 600 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <User size={14} color="#64748b" />
-                        {order.customer_name} {order.customer_phone ? `(${order.customer_phone})` : ''}
-                      </div>
-                    </td>
-                    <td>{order.item_count || 0} mặt hàng</td>
-                    <td style={{ fontWeight: 800, color: '#064e3b', fontSize: '1rem' }}>
-                      {order.total_amount ? order.total_amount.toLocaleString('vi-VN') + ' đ' : '0 đ'}
-                    </td>
-                    <td style={{ fontWeight: 600, color: '#059669' }}>
-                      {order.paid_amount ? order.paid_amount.toLocaleString('vi-VN') + ' đ' : '0 đ'}
-                    </td>
-                    <td style={{ fontWeight: 700, color: order.remaining_debt > 0 ? '#d97706' : '#64748b' }}>
-                      {order.remaining_debt ? order.remaining_debt.toLocaleString('vi-VN') + ' đ' : '0 đ'}
-                    </td>
+                    <td>{o.item_count} sản phẩm</td>
+                    <td style={{ fontWeight: 700, color: '#064e3b' }}>{o.total_amount.toLocaleString('vi-VN')} đ</td>
+                    <td style={{ fontWeight: 600, color: '#059669' }}>{o.paid_amount.toLocaleString('vi-VN')} đ</td>
                     <td>
-                      {order.payment_status === 'paid' && (
+                      {o.payment_status === 'paid' && (
                         <span className="badge badge-confirmed">
                           <CheckCircle2 size={12} /> Đã Trả Hết
                         </span>
                       )}
-                      {order.payment_status === 'partial' && (
+                      {o.payment_status === 'partial' && (
                         <span className="badge badge-pending">
-                          <Clock size={12} /> Trả 1 Phần
+                          <Clock size={12} /> Trả 1 Phần (Còn {o.remaining_debt.toLocaleString('vi-VN')}đ)
                         </span>
                       )}
-                      {order.payment_status === 'unpaid' && (
+                      {o.payment_status === 'unpaid' && (
                         <span className="badge" style={{ backgroundColor: '#fef2f2', color: '#ef4444' }}>
-                          <AlertCircle size={12} /> Chưa Trả
+                          <AlertCircle size={12} /> Ghi Nợ (Nợ {o.total_amount.toLocaleString('vi-VN')}đ)
                         </span>
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button
-                        className="btn btn-primary"
+                        className="btn btn-secondary"
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
-                        onClick={() => handleViewDetail(order.id)}
+                        onClick={() => handleViewDetail(o.id)}
                       >
-                        <Eye size={14} /> Chi Tiết
+                        <Eye size={14} /> Chi tiết FIFO
                       </button>
                     </td>
                   </tr>
@@ -145,11 +186,12 @@ export default function SalesHistory() {
         )}
       </div>
 
-      {/* Sales Order Detail & FIFO Trace Modal */}
+      {/* Modal View Detail with FIFO allocation */}
       <SalesOrderDetailModal
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
-        orderId={selectedOrderId}
+        salesOrderId={selectedOrderId}
+        onRefresh={fetchOrders}
       />
     </div>
   );

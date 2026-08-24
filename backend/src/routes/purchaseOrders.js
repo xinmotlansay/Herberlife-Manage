@@ -425,7 +425,7 @@ router.post('/:id/cancel', (req, res) => {
  */
 router.get('/', (req, res) => {
   try {
-    const { status, from, to } = req.query;
+    const { status, from, to, month, year } = req.query;
     let query = 'SELECT * FROM purchase_orders WHERE 1=1';
     const params = [];
 
@@ -433,13 +433,32 @@ router.get('/', (req, res) => {
       query += ' AND status = ?';
       params.push(status);
     }
-    if (from) {
-      query += ' AND import_date >= ?';
-      params.push(from);
-    }
-    if (to) {
-      query += ' AND import_date <= ?';
-      params.push(to);
+    if (month && year && month !== 'all') {
+      const mInt = parseInt(month, 10);
+      const yInt = parseInt(year, 10);
+      const mStr = mInt.toString().padStart(2, '0');
+      const lastDay = new Date(yInt, mInt, 0).getDate();
+      const startOfMonth = `${yInt}-${mStr}-01T00:00:00.000Z`;
+      const endOfMonth = `${yInt}-${mStr}-${lastDay.toString().padStart(2, '0')}T23:59:59.999Z`;
+
+      query += ' AND import_date >= ? AND import_date <= ?';
+      params.push(startOfMonth, endOfMonth);
+    } else if (year) {
+      const yInt = parseInt(year, 10);
+      const startOfYear = `${yInt}-01-01T00:00:00.000Z`;
+      const endOfYear = `${yInt}-12-31T23:59:59.999Z`;
+
+      query += ' AND import_date >= ? AND import_date <= ?';
+      params.push(startOfYear, endOfYear);
+    } else {
+      if (from) {
+        query += ' AND import_date >= ?';
+        params.push(from);
+      }
+      if (to) {
+        query += ' AND import_date <= ?';
+        params.push(to);
+      }
     }
 
     query += ' ORDER BY id DESC';
