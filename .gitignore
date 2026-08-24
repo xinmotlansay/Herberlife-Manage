@@ -17,6 +17,7 @@ backend/.env
 # Build outputs
 frontend/dist/
 frontend/dist-ssr/
+release/
 *.local
 
 # System & OS
