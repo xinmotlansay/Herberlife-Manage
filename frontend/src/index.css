@@ -135,6 +135,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  padding: 1.5rem 1.75rem;
+  max-width: 1600px;
+  box-sizing: border-box;
 }
 
 .top-bar {
@@ -183,9 +186,8 @@ body {
 }
 
 .page-wrapper {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0;
+  max-width: 100%;
   width: 100%;
 }
 
@@ -195,8 +197,8 @@ body {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--neutral-200);
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  padding: 1.75rem;
+  margin-bottom: 1.75rem;
 }
 
 .card-header {

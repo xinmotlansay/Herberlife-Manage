@@ -132,90 +132,89 @@ export default function Statistics() {
       ) : (
         <>
           {/* SECTION 1: MONTHLY FINANCIAL & INVENTORY VALUE KPI CARDS */}
-          <div style={{ marginBottom: '1.75rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Calendar size={18} color="#059669" />
+          <div style={{ marginBottom: '2.25rem' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar size={20} color="#059669" />
               1. Thống Kê Chi Tiết & Giá Trị Hàng Tồn Tháng {selectedMonth}/{selectedYear}:
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
               {/* Revenue Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Doanh Thu Tháng {selectedMonth}</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#064e3b', marginTop: '0.2rem' }}>
+              <div className="card" style={{ marginBottom: 0, padding: '1.5rem' }}>
+                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Doanh Thu Tháng {selectedMonth}</span>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#064e3b', marginTop: '0.35rem' }}>
                   {mSummary.monthly_revenue ? mSummary.monthly_revenue.toLocaleString('vi-VN') + ' đ' : '0 đ'}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '0.4rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '0.5rem', fontWeight: 600 }}>
                   {mSummary.monthly_order_count || 0} đơn bán hàng trong tháng
                 </div>
               </div>
 
               {/* Profit Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>Lợi Nhuận Gộp Tháng</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#047857', marginTop: '0.2rem' }}>
+              <div className="card" style={{ marginBottom: 0, padding: '1.5rem', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                <span style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Lợi Nhuận Gộp Tháng</span>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#047857', marginTop: '0.35rem' }}>
                   {mSummary.monthly_profit ? mSummary.monthly_profit.toLocaleString('vi-VN') + ' đ' : '0 đ'}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '0.4rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '0.5rem', fontWeight: 600 }}>
                   (Đã trừ giá vốn xuất kho FIFO)
                 </div>
               </div>
 
               {/* Order Count Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Số Lượng Bán Trong Tháng</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#d97706', marginTop: '0.2rem' }}>
+              <div className="card" style={{ marginBottom: 0, padding: '1.5rem' }}>
+                <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Số Lượng Bán Trong Tháng</span>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#d97706', marginTop: '0.35rem' }}>
                   {mSummary.monthly_sold_qty || 0} SP
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>
-                  Giá vốn xuất: {mSummary.monthly_cost_of_goods_sold ? mSummary.monthly_cost_of_goods_sold.toLocaleString('vi-VN') + 'đ' : '0đ'}
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 600 }}>
+                  Giá vốn xuất: {mSummary.monthly_cost_of_goods_sold ? mSummary.monthly_cost_of_goods_sold.toLocaleString('vi-VN') + ' đ' : '0 đ'}
                 </div>
               </div>
             </div>
 
             {/* OPENING & CLOSING INVENTORY VALUE CARDS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
               
               {/* Opening Inventory Value Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem', backgroundColor: '#f8fafc', borderLeft: '4px solid #3b82f6' }}>
+              <div className="card" style={{ marginBottom: 0, padding: '1.5rem', backgroundColor: '#f8fafc', borderLeft: '5px solid #3b82f6' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                       🏢 GIÁ TRỊ HÀNG TỒN ĐẦU KỲ (THÁNG {selectedMonth})
                     </span>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1e40af', marginTop: '0.25rem' }}>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#1e40af', marginTop: '0.35rem' }}>
                       {totalNxtOpeningValue.toLocaleString('vi-VN')} đ
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
                       (Kết chuyển từ giá trị tồn cuối tháng trước)
                     </span>
                   </div>
-                  <div style={{ padding: '0.75rem', backgroundColor: '#dbeafe', borderRadius: '0.75rem', color: '#1e40af' }}>
-                    <Archive size={28} />
+                  <div style={{ padding: '0.85rem', backgroundColor: '#dbeafe', borderRadius: '0.85rem', color: '#1e40af' }}>
+                    <Archive size={30} />
                   </div>
                 </div>
               </div>
 
               {/* Closing Inventory Value Card */}
-              <div className="card" style={{ marginBottom: 0, padding: '1.25rem', backgroundColor: '#ecfdf5', borderLeft: '4px solid #10b981' }}>
+              <div className="card" style={{ marginBottom: 0, padding: '1.5rem', backgroundColor: '#ecfdf5', borderLeft: '5px solid #10b981' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>
-                      🏬 GIÁ TRỊ HÀNG TỒN CUỐI KỲ (THÁNG {selectedMonth})
+                    <span style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                      🛢️ GIÁ TRỊ HÀNG TỒN CUỐI KỲ (THÁNG {selectedMonth})
                     </span>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#064e3b', marginTop: '0.25rem' }}>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#047857', marginTop: '0.35rem' }}>
                       {totalNxtClosingValue.toLocaleString('vi-VN')} đ
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: '#059669' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#059669', display: 'block', marginTop: '0.25rem' }}>
                       (Tự động chuyển thành giá trị tồn đầu tháng sau)
                     </span>
                   </div>
-                  <div style={{ padding: '0.75rem', backgroundColor: '#d1fae5', borderRadius: '0.75rem', color: '#047857' }}>
-                    <Package size={28} />
+                  <div style={{ padding: '0.85rem', backgroundColor: '#d1fae5', borderRadius: '0.85rem', color: '#059669' }}>
+                    <PackageCheck size={30} />
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
 

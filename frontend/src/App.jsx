@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UploadCloud, History, Package, Users, ShoppingCart, ShoppingBag, BarChart2, ShieldCheck, Leaf } from 'lucide-react';
 import PurchaseImport from './pages/PurchaseImport';
 import PurchaseHistory from './pages/PurchaseHistory';
@@ -8,8 +8,49 @@ import SalesCreate from './pages/SalesCreate';
 import SalesHistory from './pages/SalesHistory';
 import Statistics from './pages/Statistics';
 
+const VALID_TABS = ['import', 'history', 'inventory', 'customers', 'sales_create', 'sales_history', 'statistics'];
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('import'); // 'import', 'history', 'inventory', 'customers', 'sales_create', 'sales_history', 'statistics'
+  const getTabFromHash = () => {
+    const hash = window.location.hash.replace('#', '').trim();
+    if (VALID_TABS.includes(hash)) return hash;
+    const saved = localStorage.getItem('herbalife_active_tab');
+    if (VALID_TABS.includes(saved)) return saved;
+    return 'import';
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromHash);
+
+  // Sync active tab with URL Hash & Browser Back/Forward buttons
+  useEffect(() => {
+    // Set initial hash if missing
+    if (!window.location.hash || !VALID_TABS.includes(window.location.hash.replace('#', ''))) {
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (VALID_TABS.includes(hash)) {
+        setActiveTab(hash);
+        localStorage.setItem('herbalife_active_tab', hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
+
+  const handleTabChange = (newTab) => {
+    if (!VALID_TABS.includes(newTab)) return;
+    setActiveTab(newTab);
+    window.location.hash = `#${newTab}`;
+    localStorage.setItem('herbalife_active_tab', newTab);
+  };
 
   return (
     <div className="app-container">
@@ -39,7 +80,7 @@ export default function App() {
         <nav className="sidebar-nav">
           <div
             className={`nav-item ${activeTab === 'import' ? 'active' : ''}`}
-            onClick={() => setActiveTab('import')}
+            onClick={() => handleTabChange('import')}
           >
             <UploadCloud className="icon" />
             <span>1. Nhập Hàng & OCR</span>
@@ -47,7 +88,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleTabChange('history')}
           >
             <History className="icon" />
             <span>2. Lịch Sử Nhập Hàng</span>
@@ -55,7 +96,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => handleTabChange('inventory')}
           >
             <Package className="icon" />
             <span>3. Danh Mục Kho</span>
@@ -63,7 +104,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('customers')}
+            onClick={() => handleTabChange('customers')}
           >
             <Users className="icon" />
             <span>4. Quản Lý Khách Hàng</span>
@@ -71,7 +112,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'sales_create' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sales_create')}
+            onClick={() => handleTabChange('sales_create')}
           >
             <ShoppingCart className="icon" />
             <span>5. Tạo Đơn Bán Hàng</span>
@@ -79,7 +120,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'sales_history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sales_history')}
+            onClick={() => handleTabChange('sales_history')}
           >
             <ShoppingBag className="icon" />
             <span>6. Lịch Sử Bán Hàng</span>
@@ -87,7 +128,7 @@ export default function App() {
 
           <div
             className={`nav-item ${activeTab === 'statistics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('statistics')}
+            onClick={() => handleTabChange('statistics')}
           >
             <BarChart2 className="icon" />
             <span>7. Thống Kê & Báo Cáo</span>
@@ -102,45 +143,16 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Area */}
-      <div className="main-content">
-        <header className="top-bar">
-          <div className="top-bar-title">
-            <h1>
-              {activeTab === 'import' && 'Module 1: Nhập Hàng Qua Hoá Đơn OCR'}
-              {activeTab === 'history' && 'Lịch Sử Các Đơn Nhập Hàng'}
-              {activeTab === 'inventory' && 'Module 2: Quản Lý Tồn Kho Sản Phẩm'}
-              {activeTab === 'customers' && 'Module 3: Quản Lý Khách Hàng & Công Nợ'}
-              {activeTab === 'sales_create' && 'Module 4: Tạo Đơn Bán Hàng & Trừ Kho FIFO'}
-              {activeTab === 'sales_history' && 'Lịch Sử Đơn Bán Hàng & Phân Bổ FIFO'}
-              {activeTab === 'statistics' && 'Module 5: Thống Kê Doanh Thu, Lợi Nhuận & Kết Chuyển NXT'}
-            </h1>
-            <p>Hệ thống Quản lý Cửa hàng Herbalife (Chạy Local - Miễn phí)</p>
-          </div>
-
-          <div className="user-profile">
-            <div className="user-avatar">CS</div>
-            <div style={{ fontSize: '0.85rem' }}>
-              <strong style={{ color: '#064e3b', display: 'block' }}>Chủ Shop</strong>
-              <span style={{ color: '#059669', fontSize: '0.75rem' }}>Quyền Quản Lý</span>
-            </div>
-          </div>
-        </header>
-
-        <main className="page-wrapper">
-          {activeTab === 'import' && (
-            <PurchaseImport onNavigateHistory={() => setActiveTab('history')} />
-          )}
-          {activeTab === 'history' && <PurchaseHistory />}
-          {activeTab === 'inventory' && <InventoryView />}
-          {activeTab === 'customers' && <Customers />}
-          {activeTab === 'sales_create' && (
-            <SalesCreate onNavigateHistory={() => setActiveTab('sales_history')} />
-          )}
-          {activeTab === 'sales_history' && <SalesHistory />}
-          {activeTab === 'statistics' && <Statistics />}
-        </main>
-      </div>
+      {/* Main Content Area */}
+      <main className="main-content">
+        {activeTab === 'import' && <PurchaseImport onNavigateHistory={() => handleTabChange('history')} />}
+        {activeTab === 'history' && <PurchaseHistory />}
+        {activeTab === 'inventory' && <InventoryView />}
+        {activeTab === 'customers' && <Customers />}
+        {activeTab === 'sales_create' && <SalesCreate onNavigateHistory={() => handleTabChange('sales_history')} />}
+        {activeTab === 'sales_history' && <SalesHistory />}
+        {activeTab === 'statistics' && <Statistics />}
+      </main>
     </div>
   );
 }
