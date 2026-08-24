@@ -59,13 +59,14 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
     // Call OCR service
     const ocrResult = await processInvoiceImage(filePath);
 
-    // Insert purchase order with status 'pending_confirmation'
+    // Insert purchase order with status 'pending_confirmation' and extracted import date
+    const importDateToSave = ocrResult.extractedDate || new Date().toISOString();
     const insertPo = db.prepare(`
-      INSERT INTO purchase_orders (invoice_image_url, status, created_by)
-      VALUES (?, 'pending_confirmation', ?)
+      INSERT INTO purchase_orders (invoice_image_url, status, import_date, created_by)
+      VALUES (?, 'pending_confirmation', ?, ?)
     `);
 
-    const result = insertPo.run(relativeUrl || null, req.body.created_by || 'Chủ shop');
+    const result = insertPo.run(relativeUrl || null, importDateToSave, req.body.created_by || 'Chủ shop');
     const purchaseOrderId = result.lastInsertRowid;
 
     // Check existing products in DB for matching

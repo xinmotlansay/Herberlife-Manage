@@ -1,8 +1,7 @@
 const vision = require('@google-cloud/vision');
 const fs = require('fs');
 const path = require('path');
-const pdfParseModule = require('pdf-parse');
-const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : (pdfParseModule && pdfParseModule.default ? pdfParseModule.default : null);
+const { PDFParse } = require('pdf-parse');
 
 /**
  * Clean number string into pure float/int.
@@ -22,19 +21,31 @@ function parseVietnameseNumber(numStr) {
  * Parses lines extracted from PDF or Google Vision API OCR
  */
 function parseInvoiceText(fullText) {
-  const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!fullText) return { items: [], extractedDate: null };
+
+  const rawLines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
   const items = [];
 
-  // Known Herbalife sample default set if OCR text matches sample or fallback needed
-  const isSampleMatch = fullText.includes('HERBALIFE') || fullText.includes('0065') || fullText.includes('Herbalifeline');
+  // Pre-process lines: merge orphan prefix product code lines with next line ending in numbers & tax
+  const mergedLines = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const l = rawLines[i];
+    if (/^[A-Z0-9]{4}\s+(?:P\s+)?/.test(l) && !/\d+%\s+[\d.,]+/.test(l) && i + 1 < rawLines.length) {
+      mergedLines.push(l + ' ' + rawLines[i + 1]);
+      i++; // Skip next line as it was merged
+    } else {
+      mergedLines.push(l);
+    }
+  }
 
   // Regex pattern for Herbalife invoice product row:
   // Example: "0065 P Herbalifeline EA 5 567,421 2,837,105 8% 226,968 3,064,073"
   // Example: "4T89 P Bo San Pham 4T89 EA 1 1,865,306 1,865,306 8% 149,224 2,014,530"
+  // Example: "0006 P Lo Hoi thao moc co dac EA 5 597,171 2,985,855 8% 238,868 3,224,723"
   const lineRegex = /^([A-Z0-9]{4})\s+(?:P\s+)?(.+?)\s+(EA|CAI|HOP|THUNG|CHAI|PAK)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)(?:\s+(\d+)%)?/i;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < mergedLines.length; i++) {
+    const line = mergedLines[i];
     const match = line.match(lineRegex);
 
     if (match) {
@@ -62,21 +73,17 @@ function parseInvoiceText(fullText) {
     }
   }
 
-  // Fallback: If OCR/PDF returns text but regex missed some Herbalife rows, try multi-pass search
-  if (items.length === 0 && isSampleMatch) {
-    return [
-      { product_code_raw: '0065', product_name_raw: 'Herbalifeline', unit: 'EA', quantity: 5, unit_price_before_tax: 567421, tax_rate: 8, import_price: 612815 },
-      { product_code_raw: '0146', product_name_raw: 'HHDD Banh Quy va Kem', unit: 'EA', quantity: 11, unit_price_before_tax: 617636, tax_rate: 8, import_price: 667047 },
-      { product_code_raw: '0242', product_name_raw: 'Bot Protein - Theo nhu cau moi nguoi', unit: 'EA', quantity: 5, unit_price_before_tax: 471679, tax_rate: 8, import_price: 509413 },
-      { product_code_raw: '1458', product_name_raw: 'H24 Hydrate Huong Cam', unit: 'EA', quantity: 4, unit_price_before_tax: 630743, tax_rate: 8, import_price: 681202 },
-      { product_code_raw: '1459', product_name_raw: 'H24 Rebuild Strength', unit: 'EA', quantity: 2, unit_price_before_tax: 1254448, tax_rate: 8, import_price: 1354804 },
-      { product_code_raw: '1829', product_name_raw: 'Simply probiotic', unit: 'EA', quantity: 2, unit_price_before_tax: 496150, tax_rate: 8, import_price: 535842 },
-      { product_code_raw: '3150', product_name_raw: 'Niteworks', unit: 'EA', quantity: 4, unit_price_before_tax: 1164057, tax_rate: 8, import_price: 1257182 },
-      { product_code_raw: '4T89', product_name_raw: 'Bo San Pham 4T89', unit: 'EA', quantity: 1, unit_price_before_tax: 1865306, tax_rate: 8, import_price: 2014530 }
-    ];
+  // Extract Invoice Date if present (e.g., "17/ 08/ 2026" or "14/ 08/ 2026")
+  let extractedDate = null;
+  const dateMatch = fullText.match(/(?:Ngày lập hóa đơn|Ngày đặt hàng)[^\d]*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/i);
+  if (dateMatch) {
+    const day = dateMatch[1].padStart(2, '0');
+    const month = dateMatch[2].padStart(2, '0');
+    const year = dateMatch[3];
+    extractedDate = `${year}-${month}-${day}T00:00:00.000Z`;
   }
 
-  return items;
+  return { items, extractedDate };
 }
 
 /**
@@ -88,14 +95,15 @@ async function processInvoiceImage(imagePath) {
   if (imagePath && fs.existsSync(imagePath)) {
     const ext = path.extname(imagePath).toLowerCase();
 
-    // 1. Parse PDF files directly
+    // 1. Parse PDF files directly with PDFParse instance
     if (ext === '.pdf') {
       try {
         const dataBuffer = fs.readFileSync(imagePath);
-        const pdfData = await pdfParse(dataBuffer);
+        const parser = new PDFParse({ data: dataBuffer });
+        const pdfData = await parser.getText();
         if (pdfData && pdfData.text) {
           fullText = pdfData.text;
-          console.log('[OCR Service] Successfully extracted text from PDF invoice file.');
+          console.log('[OCR Service] Successfully extracted text dynamically from PDF invoice file.');
         }
       } catch (pdfErr) {
         console.warn('[OCR Service] Failed to extract text from PDF:', pdfErr.message);
@@ -118,24 +126,12 @@ async function processInvoiceImage(imagePath) {
     }
   }
 
-  // 3. Fallback default sample text if no text could be read
-  if (!fullText) {
-    fullText = `
-0065 P Herbalifeline EA 5 567,421 2,837,105 8% 226,968 3,064,073
-0146 P HHDD Banh Quy va Kem EA 11 617,636 6,793,996 8% 543,520 7,337,516
-0242 P Bot Protein - Theo nhu cau moi nguoi EA 5 471,679 2,358,395 8% 188,672 2,547,067
-1458 P H24 Hydrate Huong Cam EA 4 630,743 2,522,972 8% 201,838 2,724,810
-1459 P H24 Rebuild Strength EA 2 1,254,448 2,508,896 8% 200,712 2,709,608
-1829 P Simply probiotic EA 2 496,150 992,300 8% 79,384 1,071,684
-3150 P Niteworks EA 4 1,164,057 4,656,228 8% 372,498 5,028,726
-4T89 P Bo San Pham 4T89 EA 1 1,865,306 1,865,306 8% 149,224 2,014,530
-    `;
-  }
+  const { items, extractedDate } = parseInvoiceText(fullText);
 
-  const items = parseInvoiceText(fullText);
   return {
     raw_text: fullText,
-    items
+    items,
+    extractedDate
   };
 }
 
