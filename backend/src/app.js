@@ -62,11 +62,28 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+  const actualPort = server.address().port;
+  app.set('port', actualPort);
+  process.env.HERBALIFE_ACTIVE_PORT = actualPort;
   console.log(`====================================================`);
-  console.log(` Herbalife Management Server running on port ${PORT}`);
-  console.log(` Base API: http://localhost:${PORT}/api`);
+  console.log(` Herbalife Management Server running on port ${actualPort}`);
+  console.log(` Base API: http://localhost:${actualPort}/api`);
   console.log(`====================================================`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`[Server Warning] Port ${PORT} is in use, dynamically binding to an available free port...`);
+    const fallbackServer = app.listen(0, () => {
+      const freePort = fallbackServer.address().port;
+      app.set('port', freePort);
+      process.env.HERBALIFE_ACTIVE_PORT = freePort;
+      console.log(`[Server] Express dynamically started on free port: ${freePort}`);
+    });
+  } else {
+    console.error('[Server Error]', err);
+  }
 });
 
 module.exports = app;

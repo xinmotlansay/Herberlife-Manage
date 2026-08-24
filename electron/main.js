@@ -19,12 +19,24 @@ process.env.HERBALIFE_UPLOADS_DIR = appUploadsDir;
 process.env.HERBALIFE_BACKUPS_DIR = appBackupsDir;
 process.env.HERBALIFE_TMP_DIR = appTmpDir;
 
-// Start Express Backend Server
-const backendApp = require('../backend/src/app');
+const net = require('net');
+
+function findFreePort(startPort) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(startPort, '127.0.0.1', () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => {
+      resolve(findFreePort(startPort + 1));
+    });
+  });
+}
 
 let mainWindow;
 
-function createWindow() {
+function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 900,
@@ -42,7 +54,7 @@ function createWindow() {
   Menu.setApplicationMenu(null);
 
   const isDev = process.env.NODE_ENV === 'development';
-  const targetUrl = isDev ? 'http://localhost:5173' : 'http://localhost:3000';
+  const targetUrl = isDev ? 'http://localhost:5173' : `http://localhost:${port}`;
 
   mainWindow.loadURL(targetUrl);
 
@@ -51,12 +63,18 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  const freePort = await findFreePort(3000);
+  process.env.PORT = freePort;
+
+  // Start Express Backend Server on free port
+  require('../backend/src/app');
+
+  createWindow(freePort);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow(freePort);
     }
   });
 });
