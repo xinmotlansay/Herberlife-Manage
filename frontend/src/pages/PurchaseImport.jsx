@@ -783,6 +783,7 @@ export default function PurchaseImport({ onNavigateHistory }) {
         onConfirm={handleConfirmSubmit}
         summary={calculateSummary()}
         loading={submitting}
+        initialImportDate={draftImportDate}
       />
     </div>
   );

@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, X, PackagePlus, DollarSign, Layers, Calendar } from 'lucide-react';
 
-export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, loading }) {
-  // Default to current local date-time formatted as YYYY-MM-DDTHH:mm
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  const defaultDateTime = now.toISOString().slice(0, 16);
+export default function ConfirmModal({ isOpen, onClose, onConfirm, summary, loading, initialImportDate }) {
+  const getFormattedNow = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
 
-  const [importDate, setImportDate] = useState(defaultDateTime);
+  const [importDate, setImportDate] = useState(initialImportDate || getFormattedNow());
+
+  useEffect(() => {
+    if (isOpen) {
+      setImportDate(initialImportDate || getFormattedNow());
+    }
+  }, [isOpen, initialImportDate]);
 
   if (!isOpen) return null;
 
