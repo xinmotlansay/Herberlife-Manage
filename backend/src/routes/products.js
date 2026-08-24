@@ -146,7 +146,7 @@ router.get('/:id', (req, res) => {
 
     // Get active inventory batches ordered by import_date ASC (FIFO order)
     const activeBatches = db.prepare(`
-      SELECT b.*, po.invoice_image_url
+      SELECT b.*, pod.purchase_order_id AS purchase_order_id, po.invoice_image_url
       FROM inventory_batches b
       LEFT JOIN purchase_order_details pod ON b.purchase_detail_id = pod.id
       LEFT JOIN purchase_orders po ON pod.purchase_order_id = po.id

@@ -98,7 +98,7 @@ export default function BatchDetailsModal({ isOpen, onClose, productId }) {
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th>Lô #</th>
+                      <th style={{ width: '150px' }}>Mã Đơn Nhập & Lô</th>
                       <th>Ngày Nhập Kho</th>
                       <th>Số Nhập Ban Đầu</th>
                       <th>Số Còn Tồn</th>
@@ -109,7 +109,12 @@ export default function BatchDetailsModal({ isOpen, onClose, productId }) {
                   <tbody>
                     {productDetails.batches.map((batch, idx) => (
                       <tr key={batch.id}>
-                        <td style={{ fontWeight: 700, color: '#064e3b' }}>Lô #{batch.id}</td>
+                        <td style={{ fontWeight: 700, color: '#064e3b' }}>
+                          Đơn nhập #{batch.purchase_order_id}
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>
+                            (Lô thứ {idx + 1})
+                          </span>
+                        </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }}>
                             <Calendar size={14} color="#64748b" />
