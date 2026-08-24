@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingBag, Layers, Calendar, User, DollarSign, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
-export default function SalesOrderDetailModal({ isOpen, onClose, orderId }) {
+export default function SalesOrderDetailModal({ isOpen, onClose, salesOrderId, orderId }) {
+  const currentOrderId = salesOrderId || orderId;
   const [orderDetail, setOrderDetail] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (orderId && isOpen) {
+    if (currentOrderId && isOpen) {
       fetchOrderDetail();
     }
-  }, [orderId, isOpen]);
+  }, [currentOrderId, isOpen]);
 
   const fetchOrderDetail = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales-orders/${orderId}`);
+      const res = await fetch(`/api/sales-orders/${currentOrderId}`);
       const data = await res.json();
       if (data.success) {
         setOrderDetail(data.data);
@@ -36,7 +37,7 @@ export default function SalesOrderDetailModal({ isOpen, onClose, orderId }) {
             <ShoppingBag size={24} color="#a7f3d0" />
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-                Chi Tiết Đơn Bán Hàng #{orderId}
+                Chi Tiết Đơn Bán Hàng #{currentOrderId}
               </h2>
               <p style={{ fontSize: '0.8rem', color: '#a7f3d0' }}>
                 {orderDetail ? `Khách hàng: ${orderDetail.customer_name}` : 'Đang tải...'}
