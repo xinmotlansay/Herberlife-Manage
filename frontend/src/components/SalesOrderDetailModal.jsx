@@ -139,7 +139,7 @@ export default function SalesOrderDetailModal({ isOpen, onClose, salesOrderId, o
                         </div>
                         {item.allocations.map(alloc => (
                           <div key={alloc.id} style={{ fontSize: '0.8rem', color: '#065f46', display: 'flex', justifyContent: 'space-between', marginTop: '0.15rem' }}>
-                            <span>• Lấy <strong>{alloc.quantity_taken} {item.unit}</strong> từ Lô #{alloc.batch_id} (Nhập ngày {new Date(alloc.import_date).toLocaleDateString('vi-VN')})</span>
+                            <span>• Lấy <strong>{alloc.quantity_taken} {item.unit}</strong> từ Đơn Nhập #{alloc.purchase_order_id || alloc.batch_id} (Nhập ngày {new Date(alloc.import_date).toLocaleDateString('vi-VN')})</span>
                             <span>Giá vốn lô: <strong>{alloc.unit_cost.toLocaleString('vi-VN')} đ/cái</strong></span>
                           </div>
                         ))}

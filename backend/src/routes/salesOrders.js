@@ -316,9 +316,10 @@ router.get('/:id', (req, res) => {
     `).all(req.params.id);
 
     const getAllocations = db.prepare(`
-      SELECT iba.*, ib.import_date, ib.import_price
+      SELECT iba.*, ib.import_date, ib.import_price, pod.purchase_order_id AS purchase_order_id
       FROM inventory_batch_allocations iba
       JOIN inventory_batches ib ON iba.batch_id = ib.id
+      LEFT JOIN purchase_order_details pod ON ib.purchase_detail_id = pod.id
       WHERE iba.sales_order_detail_id = ?
     `);
 
