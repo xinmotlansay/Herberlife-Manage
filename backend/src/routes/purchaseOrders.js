@@ -70,7 +70,7 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
     const purchaseOrderId = result.lastInsertRowid;
 
     // Check existing products in DB for matching
-    const findProductByCode = db.prepare('SELECT id FROM products WHERE product_code = ?');
+    const findProductByCode = db.prepare('SELECT id, product_name, unit FROM products WHERE product_code = ?');
     const insertPod = db.prepare(`
       INSERT INTO purchase_order_details (
         purchase_order_id, product_id, product_code_raw, product_name_raw,
@@ -82,17 +82,21 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
     const insertedItems = [];
 
     for (const item of ocrResult.items) {
-      const existingProd = findProductByCode.get(item.product_code_raw);
+      const cleanCode = (item.product_code_raw || '').trim().toUpperCase();
+      const existingProd = findProductByCode.get(cleanCode);
       const isNew = existingProd ? 0 : 1;
       const productId = existingProd ? existingProd.id : null;
+      // If product already exists in DB, use the updated/custom name set by user in inventory
+      const nameToUse = existingProd ? existingProd.product_name : (item.product_name_raw || '');
+      const unitToUse = existingProd ? (existingProd.unit || item.unit || 'EA') : (item.unit || 'EA');
       const importPrice = Math.round(item.unit_price_before_tax * (1 + (item.tax_rate || 8) / 100));
 
       const detailRes = insertPod.run(
         purchaseOrderId,
         productId,
-        item.product_code_raw,
-        item.product_name_raw,
-        item.unit || 'EA',
+        cleanCode,
+        nameToUse,
+        unitToUse,
         item.quantity,
         item.unit_price_before_tax,
         item.tax_rate || 8,
@@ -107,9 +111,9 @@ router.post('/ocr', upload.single('image'), async (req, res) => {
         id: detailRes.lastInsertRowid,
         purchase_order_id: purchaseOrderId,
         product_id: productId,
-        product_code_raw: item.product_code_raw,
-        product_name_raw: item.product_name_raw,
-        unit: item.unit || 'EA',
+        product_code_raw: cleanCode,
+        product_name_raw: nameToUse,
+        unit: unitToUse,
         quantity: item.quantity,
         unit_price_before_tax: item.unit_price_before_tax,
         tax_rate: item.tax_rate || 8,

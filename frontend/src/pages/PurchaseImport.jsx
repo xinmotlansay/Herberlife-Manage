@@ -65,12 +65,14 @@ export default function PurchaseImport({ onNavigateHistory }) {
       if (data.success) {
         const po = data.data;
 
-        // Populate stock and correct price info for existing draft items
+        // Populate stock, updated product name, and price info for existing draft items
         const populatedItems = (po.items || []).map(item => {
           const cleanCode = (item.product_code_raw || '').trim().toUpperCase();
           const matchedProd = existingProducts.find(p => p.product_code.toUpperCase() === cleanCode);
           return {
             ...item,
+            product_name_raw: matchedProd ? matchedProd.product_name : item.product_name_raw,
+            unit: matchedProd ? (matchedProd.unit || item.unit || 'EA') : (item.unit || 'EA'),
             current_stock: matchedProd ? matchedProd.quantity : 0
           };
         });
