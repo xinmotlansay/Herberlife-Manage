@@ -21,7 +21,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static file serving for invoice images
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadsStaticDir = process.env.HERBALIFE_UPLOADS_DIR || path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsStaticDir)) {
+  fs.mkdirSync(uploadsStaticDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsStaticDir));
 
 // Routes
 app.use('/api/purchase-orders', purchaseOrdersRouter);

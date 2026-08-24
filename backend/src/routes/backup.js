@@ -6,17 +6,21 @@ const multer = require('multer');
 const db = require('../db/connection');
 const Database = require('better-sqlite3');
 
-const dataDir = path.join(__dirname, '../../data');
+const dataDir = process.env.HERBALIFE_DATA_DIR || path.join(__dirname, '../../data');
 const dbPath = path.join(dataDir, 'data.sqlite');
-const backupDir = path.join(__dirname, '../../backups');
+const backupDir = process.env.HERBALIFE_BACKUPS_DIR || path.join(__dirname, '../../backups');
+const tmpRestoreDir = process.env.HERBALIFE_TMP_DIR || path.join(__dirname, '../../tmp_restore');
 
 if (!fs.existsSync(backupDir)) {
   fs.mkdirSync(backupDir, { recursive: true });
 }
+if (!fs.existsSync(tmpRestoreDir)) {
+  fs.mkdirSync(tmpRestoreDir, { recursive: true });
+}
 
 // Multer storage for uploaded restore files
 const upload = multer({
-  dest: path.join(__dirname, '../../tmp_restore')
+  dest: tmpRestoreDir
 });
 
 /**

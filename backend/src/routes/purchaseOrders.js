@@ -7,7 +7,10 @@ const db = require('../db/connection');
 const { processInvoiceImage } = require('../services/ocrService');
 
 // Multer storage setup
-const uploadDir = path.join(__dirname, '../../uploads/purchase_invoices');
+const uploadDir = process.env.HERBALIFE_UPLOADS_DIR
+  ? path.join(process.env.HERBALIFE_UPLOADS_DIR, 'purchase_invoices')
+  : path.join(__dirname, '../../uploads/purchase_invoices');
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

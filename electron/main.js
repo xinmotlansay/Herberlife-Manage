@@ -2,16 +2,22 @@ const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure UserData directories for SQLite database and uploads
+// Ensure UserData directories for SQLite database, uploads, backups and tmp
 const userDataPath = app.getPath('userData');
 const appDataDir = path.join(userDataPath, 'data');
 const appUploadsDir = path.join(userDataPath, 'uploads');
+const appBackupsDir = path.join(userDataPath, 'backups');
+const appTmpDir = path.join(userDataPath, 'tmp');
 
 if (!fs.existsSync(appDataDir)) fs.mkdirSync(appDataDir, { recursive: true });
 if (!fs.existsSync(appUploadsDir)) fs.mkdirSync(appUploadsDir, { recursive: true });
+if (!fs.existsSync(appBackupsDir)) fs.mkdirSync(appBackupsDir, { recursive: true });
+if (!fs.existsSync(appTmpDir)) fs.mkdirSync(appTmpDir, { recursive: true });
 
 process.env.HERBALIFE_DATA_DIR = appDataDir;
 process.env.HERBALIFE_UPLOADS_DIR = appUploadsDir;
+process.env.HERBALIFE_BACKUPS_DIR = appBackupsDir;
+process.env.HERBALIFE_TMP_DIR = appTmpDir;
 
 // Start Express Backend Server
 const backendApp = require('../backend/src/app');
