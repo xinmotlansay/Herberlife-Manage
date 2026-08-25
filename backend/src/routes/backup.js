@@ -26,14 +26,12 @@ const upload = multer({
 /**
  * Helper: Run automatic daily backup snapshot
  */
-
 function runAutoDailyBackup() {
   try {
     const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const autoBackupPath = path.join(backupDir, `backup-${todayStr}.sqlite`);
 
     if (!fs.existsSync(autoBackupPath)) {
-      // Checkpoint WAL log into main sqlite file
       try { db.pragma('wal_checkpoint(FULL)'); } catch (e) {}
       fs.copyFileSync(dbPath, autoBackupPath);
       console.log(`[Auto Backup] Created daily backup snapshot: backup-${todayStr}.sqlite`);
@@ -60,12 +58,58 @@ function runAutoDailyBackup() {
 runAutoDailyBackup();
 
 /**
+ * Helper: Perform in-place transactional database restore
+ */
+function performDatabaseRestore(sourceSqlitePath) {
+  // 1. Verify source db integrity
+  const testDb = new Database(sourceSqlitePath, { readonly: true });
+  const checkRes = testDb.pragma('integrity_check');
+  testDb.close();
+
+  if (!checkRes || checkRes[0].integrity_check !== 'ok') {
+    throw new Error('File sao lưu không hợp lệ hoặc bị hư hỏng');
+  }
+
+  // 2. Perform safety backup of active db
+  const safetyBackupPath = path.join(backupDir, `safety-prerestore-${Date.now()}.sqlite`);
+  try { db.pragma('wal_checkpoint(FULL)'); } catch (e) {}
+  fs.copyFileSync(dbPath, safetyBackupPath);
+
+  // 3. Attach sourceSqlitePath to active db and replace tables transactionally
+  const escapedPath = sourceSqlitePath.replace(/'/g, "''");
+  db.exec(`ATTACH DATABASE '${escapedPath}' AS sourceDb;`);
+
+  try {
+    const tables = db.prepare("SELECT name FROM sourceDb.sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+
+    // Disable foreign keys OUTSIDE of transaction
+    db.pragma('foreign_keys = OFF;');
+
+    const restoreTx = db.transaction(() => {
+      // 1. Clear all main tables
+      for (const t of tables) {
+        db.exec(`DELETE FROM main."${t.name}";`);
+      }
+      // 2. Copy all data from sourceDb
+      for (const t of tables) {
+        db.exec(`INSERT INTO main."${t.name}" SELECT * FROM sourceDb."${t.name}";`);
+      }
+    });
+
+    restoreTx();
+  } finally {
+    try {
+      db.exec('DETACH DATABASE sourceDb;');
+    } catch (e) {}
+  }
+}
+
+/**
  * 1. GET /api/backup/export
  * Download current database file as .sqlite backup
  */
 router.get('/export', (req, res) => {
   try {
-    // Flush WAL to main sqlite file
     try { db.pragma('wal_checkpoint(FULL)'); } catch (e) {}
 
     const now = new Date();
@@ -123,32 +167,8 @@ router.post('/restore', upload.single('backupFile'), (req, res) => {
   const tempFilePath = req.file.path;
 
   try {
-    // 1. Test database integrity of uploaded file
-    const testDb = new Database(tempFilePath, { readonly: true });
-    const checkRes = testDb.pragma('integrity_check');
-    testDb.close();
-
-    if (!checkRes || checkRes[0].integrity_check !== 'ok') {
-      fs.unlinkSync(tempFilePath);
-      return res.status(400).json({ success: false, error: 'File sao lưu không hợp lệ hoặc bị hư hỏng' });
-    }
-
-    // 2. Make safety pre-restore backup of current db
-    const safetyBackupPath = path.join(backupDir, `safety-prerestore-${Date.now()}.sqlite`);
-    try { db.pragma('wal_checkpoint(FULL)'); } catch (e) {}
-    fs.copyFileSync(dbPath, safetyBackupPath);
-
-    // 3. Overwrite db file
-    db.close(); // Close active connection
-    fs.copyFileSync(tempFilePath, dbPath);
-    fs.unlinkSync(tempFilePath);
-
-    // 4. Re-open connection
-    const newDb = new Database(dbPath);
-    newDb.pragma('foreign_keys = ON');
-
-    // Mutate exported db reference in connection.js
-    Object.assign(db, newDb);
+    performDatabaseRestore(tempFilePath);
+    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
 
     res.json({
       success: true,
@@ -177,18 +197,7 @@ router.post('/restore-snapshot', (req, res) => {
   }
 
   try {
-    // Make safety backup of current
-    const safetyBackupPath = path.join(backupDir, `safety-prerestore-${Date.now()}.sqlite`);
-    try { db.pragma('wal_checkpoint(FULL)'); } catch (e) {}
-    fs.copyFileSync(dbPath, safetyBackupPath);
-
-    // Close db and overwrite
-    db.close();
-    fs.copyFileSync(snapshotPath, dbPath);
-
-    const newDb = new Database(dbPath);
-    newDb.pragma('foreign_keys = ON');
-    Object.assign(db, newDb);
+    performDatabaseRestore(snapshotPath);
 
     res.json({
       success: true,
